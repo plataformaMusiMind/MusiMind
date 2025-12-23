@@ -1,0 +1,61 @@
+{
+    "id": "c_major_scale",
+    "title": "Escala de Dó Maior",
+    "composer": null,
+    "clef": "treble",
+    "keySignature": "C",
+    "timeSignature": "4/4",
+    "tempo": 120,
+    "measures": [
+        {
+            "elements": [
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "D4"
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "E4"
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "F4"
+                }
+            ],
+            "barline": "single"
+        },
+        {
+            "elements": [
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "G4"
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "A4"
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "B4"
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "C5"
+                }
+            ],
+            "barline": "final"
+        }
+    ]
+}

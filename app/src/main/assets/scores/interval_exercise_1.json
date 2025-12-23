@@ -1,0 +1,74 @@
+{
+    "id": "interval_exercise_1",
+    "title": "Intervalos - Segundas e Terças",
+    "composer": "MusiMind",
+    "clef": "treble",
+    "keySignature": "C",
+    "timeSignature": "4/4",
+    "tempo": 60,
+    "measures": [
+        {
+            "elements": [
+                {
+                    "type": "chord",
+                    "duration": 2.0,
+                    "pitches": [
+                        "C4",
+                        "D4"
+                    ]
+                },
+                {
+                    "type": "chord",
+                    "duration": 2.0,
+                    "pitches": [
+                        "E4",
+                        "F4"
+                    ]
+                }
+            ],
+            "barline": "single"
+        },
+        {
+            "elements": [
+                {
+                    "type": "chord",
+                    "duration": 2.0,
+                    "pitches": [
+                        "C4",
+                        "E4"
+                    ]
+                },
+                {
+                    "type": "chord",
+                    "duration": 2.0,
+                    "pitches": [
+                        "D4",
+                        "F4"
+                    ]
+                }
+            ],
+            "barline": "single"
+        },
+        {
+            "elements": [
+                {
+                    "type": "chord",
+                    "duration": 2.0,
+                    "pitches": [
+                        "E4",
+                        "G4"
+                    ]
+                },
+                {
+                    "type": "chord",
+                    "duration": 2.0,
+                    "pitches": [
+                        "F4",
+                        "A4"
+                    ]
+                }
+            ],
+            "barline": "final"
+        }
+    ]
+}

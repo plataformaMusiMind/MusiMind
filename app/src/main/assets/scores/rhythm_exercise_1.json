@@ -1,0 +1,115 @@
+{
+    "id": "rhythm_exercise_1",
+    "title": "Exercício Rítmico - Nível 1",
+    "composer": "MusiMind",
+    "clef": "percussion",
+    "keySignature": "C",
+    "timeSignature": "4/4",
+    "tempo": 100,
+    "measures": [
+        {
+            "elements": [
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 0.5,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 0.5,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "C4"
+                }
+            ],
+            "barline": "single"
+        },
+        {
+            "elements": [
+                {
+                    "type": "note",
+                    "duration": 0.5,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 0.5,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 0.5,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 0.5,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 2.0,
+                    "pitch": "C4"
+                }
+            ],
+            "barline": "single"
+        },
+        {
+            "elements": [
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "C4",
+                    "dotted": true
+                },
+                {
+                    "type": "note",
+                    "duration": 0.5,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "note",
+                    "duration": 2.0,
+                    "pitch": "C4"
+                }
+            ],
+            "barline": "single"
+        },
+        {
+            "elements": [
+                {
+                    "type": "rest",
+                    "duration": 1.0
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "C4"
+                },
+                {
+                    "type": "rest",
+                    "duration": 1.0
+                },
+                {
+                    "type": "note",
+                    "duration": 1.0,
+                    "pitch": "C4"
+                }
+            ],
+            "barline": "final"
+        }
+    ]
+}

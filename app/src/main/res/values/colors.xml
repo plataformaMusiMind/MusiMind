@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors - Musical Purple Theme -->
+    <color name="primary">#7C3AED</color>
+    <color name="primary_variant">#6D28D9</color>
+    <color name="primary_container">#EDE9FE</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_primary_container">#4C1D95</color>
+    
+    <!-- Secondary Colors - Musical Teal -->
+    <color name="secondary">#14B8A6</color>
+    <color name="secondary_variant">#0D9488</color>
+    <color name="secondary_container">#CCFBF1</color>
+    <color name="on_secondary">#FFFFFF</color>
+    <color name="on_secondary_container">#134E4A</color>
+    
+    <!-- Tertiary Colors - Musical Pink -->
+    <color name="tertiary">#EC4899</color>
+    <color name="tertiary_container">#FCE7F3</color>
+    <color name="on_tertiary">#FFFFFF</color>
+    <color name="on_tertiary_container">#831843</color>
+    
+    <!-- Error Colors -->
+    <color name="error">#EF4444</color>
+    <color name="error_container">#FEE2E2</color>
+    <color name="on_error">#FFFFFF</color>
+    <color name="on_error_container">#991B1B</color>
+    
+    <!-- Success Colors -->
+    <color name="success">#22C55E</color>
+    <color name="success_container">#DCFCE7</color>
+    <color name="on_success">#FFFFFF</color>
+    <color name="on_success_container">#166534</color>
+    
+    <!-- Warning Colors -->
+    <color name="warning">#F59E0B</color>
+    <color name="warning_container">#FEF3C7</color>
+    <color name="on_warning">#FFFFFF</color>
+    <color name="on_warning_container">#92400E</color>
+    
+    <!-- Light Theme Background/Surface -->
+    <color name="background_light">#FAFAFA</color>
+    <color name="surface_light">#FFFFFF</color>
+    <color name="surface_variant_light">#F5F3FF</color>
+    <color name="on_background_light">#1F2937</color>
+    <color name="on_surface_light">#1F2937</color>
+    <color name="on_surface_variant_light">#6B7280</color>
+    <color name="outline_light">#E5E7EB</color>
+    
+    <!-- Dark Theme Background/Surface -->
+    <color name="background_dark">#0F172A</color>
+    <color name="surface_dark">#1E293B</color>
+    <color name="surface_variant_dark">#334155</color>
+    <color name="on_background_dark">#F1F5F9</color>
+    <color name="on_surface_dark">#F1F5F9</color>
+    <color name="on_surface_variant_dark">#94A3B8</color>
+    <color name="outline_dark">#475569</color>
+    
+    <!-- Gamification Colors -->
+    <color name="xp_gold">#FBBF24</color>
+    <color name="streak_orange">#F97316</color>
+    <color name="level_blue">#3B82F6</color>
+    <color name="coin_yellow">#EAB308</color>
+    <color name="heart_red">#EF4444</color>
+    
+    <!-- Music Notation Colors -->
+    <color name="note_correct">#22C55E</color>
+    <color name="note_wrong">#EF4444</color>
+    <color name="note_current">#7C3AED</color>
+    <color name="note_pending">#9CA3AF</color>
+    <color name="staff_line">#374151</color>
+    <color name="staff_line_light">#D1D5DB</color>
+    
+    <!-- Plan Colors -->
+    <color name="plan_aprendiz">#6B7280</color>
+    <color name="plan_spalla">#3B82F6</color>
+    <color name="plan_maestro">#FBBF24</color>
+</resources>

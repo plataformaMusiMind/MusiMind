@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MusiMind</string>
+    
+    <!-- Authentication -->
+    <string name="login">Entrar</string>
+    <string name="register">Cadastrar</string>
+    <string name="email">E-mail</string>
+    <string name="password">Senha</string>
+    <string name="confirm_password">Confirmar Senha</string>
+    <string name="full_name">Nome Completo</string>
+    <string name="phone">Telefone</string>
+    <string name="forgot_password">Esqueceu a senha?</string>
+    <string name="sign_in_with_google">Entrar com Google</string>
+    <string name="sign_up_with_google">Cadastrar com Google</string>
+    <string name="no_account">Não tem uma conta?</string>
+    <string name="already_have_account">Já tem uma conta?</string>
+    
+    <!-- User Types -->
+    <string name="user_type_student">Aluno</string>
+    <string name="user_type_teacher">Professor</string>
+    <string name="user_type_school">Escola de Música</string>
+    <string name="select_user_type">Selecione seu perfil</string>
+    <string name="user_type_student_description">Quero aprender teoria musical de forma divertida e gamificada</string>
+    <string name="user_type_teacher_description">Quero acompanhar o desempenho dos meus alunos</string>
+    <string name="user_type_school_description">Quero gerenciar alunos, professores e turmas</string>
+    
+    <!-- Plans -->
+    <string name="select_plan">Escolha seu plano</string>
+    <string name="plan_aprendiz">Aprendiz</string>
+    <string name="plan_aprendiz_price">Grátis</string>
+    <string name="plan_spalla">Spalla</string>
+    <string name="plan_spalla_price">R$ 19,90/mês</string>
+    <string name="plan_maestro">Maestro</string>
+    <string name="plan_maestro_price">R$ 29,90/mês</string>
+    <string name="continue_btn">Continuar</string>
+    
+    <!-- Avatar -->
+    <string name="select_avatar">Escolha seu avatar</string>
+    <string name="take_photo">Tirar foto</string>
+    <string name="choose_from_gallery">Escolher da galeria</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">Trilha</string>
+    <string name="nav_practice">Prática</string>
+    <string name="nav_challenges">Desafios</string>
+    <string name="nav_social">Social</string>
+    <string name="nav_profile">Perfil</string>
+    
+    <!-- Practice -->
+    <string name="solfege">Solfejo</string>
+    <string name="rhythmic_perception">Percepção Rítmica</string>
+    <string name="melodic_perception">Percepção Melódica</string>
+    <string name="interval_perception">Percepção Intervalar</string>
+    <string name="harmonic_progressions">Progressões Harmônicas</string>
+    
+    <!-- Exercise -->
+    <string name="play">Ouvir</string>
+    <string name="start_solfege">Iniciar Solfejo</string>
+    <string name="octave_up">+1 Oitava</string>
+    <string name="octave_normal">Oitava Normal</string>
+    <string name="octave_down">-1 Oitava</string>
+    
+    <!-- Gamification -->
+    <string name="xp">XP</string>
+    <string name="level">Nível</string>
+    <string name="streak">Sequência</string>
+    <string name="days">dias</string>
+    <string name="coins">Moedas</string>
+    <string name="lives">Vidas</string>
+    
+    <!-- Common -->
+    <string name="loading">Carregando...</string>
+    <string name="error">Erro</string>
+    <string name="retry">Tentar novamente</string>
+    <string name="cancel">Cancelar</string>
+    <string name="ok">OK</string>
+    <string name="save">Salvar</string>
+    <string name="delete">Excluir</string>
+    <string name="edit">Editar</string>
+    <string name="settings">Configurações</string>
+    <string name="logout">Sair</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_name">MusiMind</string>
+    <string name="notification_channel_description">Notificações do MusiMind</string>
+    <string name="daily_reminder_title">Hora de praticar! 🎵</string>
+    <string name="daily_reminder_message">Não perca sua sequência! Continue sua jornada musical hoje.</string>
+</resources>
