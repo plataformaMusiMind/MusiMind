@@ -3,7 +3,6 @@ package com.musimind.presentation.onboarding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -12,12 +11,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.SupervisorAccount
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -37,100 +39,118 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.musimind.domain.model.UserType
-import com.musimind.presentation.auth.AuthViewModel
 
 /**
  * User Type Selection Screen - Part of onboarding flow
+ * Saves selection to OnboardingManager before navigating
  */
 @Composable
 fun UserTypeScreen(
     onUserTypeSelected: () -> Unit,
-    viewModel: AuthViewModel = hiltViewModel()
+    viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     var selectedType by remember { mutableStateOf<UserType?>(null) }
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        // Header
-        Text(
-            text = "Como você quer usar o MusiMind?",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        Text(
-            text = "Selecione seu perfil para personalizar sua experiência",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
-        
-        Spacer(modifier = Modifier.height(48.dp))
-        
-        // User Type Cards
-        UserTypeCard(
-            title = "Aluno",
-            description = "Quero aprender teoria musical de forma divertida e gamificada",
-            icon = Icons.Filled.Person,
-            isSelected = selectedType == UserType.STUDENT,
-            onClick = { selectedType = UserType.STUDENT }
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        UserTypeCard(
-            title = "Professor",
-            description = "Quero acompanhar o desempenho dos meus alunos e criar desafios",
-            icon = Icons.Outlined.SupervisorAccount,
-            isSelected = selectedType == UserType.TEACHER,
-            onClick = { selectedType = UserType.TEACHER }
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        UserTypeCard(
-            title = "Escola de Música",
-            description = "Quero gerenciar alunos, professores e turmas da minha escola",
-            icon = Icons.Filled.School,
-            isSelected = selectedType == UserType.SCHOOL,
-            onClick = { selectedType = UserType.SCHOOL }
-        )
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
-        // Continue Button
-        Button(
-            onClick = {
-                selectedType?.let { type ->
-                    viewModel.updateUserType(type)
-                    onUserTypeSelected()
-                }
-            },
+        // Scrollable content
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            enabled = selectedType != null
+                .weight(1f)
+                .verticalScroll(scrollState)
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // Header
             Text(
-                text = "Continuar",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
+                text = "Como você quer usar o MusiMind?",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center
             )
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            Text(
+                text = "Selecione seu perfil para personalizar sua experiência",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            // User Type Cards
+            UserTypeCard(
+                title = "Aluno",
+                description = "Quero aprender teoria musical de forma divertida e gamificada",
+                icon = Icons.Filled.Person,
+                isSelected = selectedType == UserType.STUDENT,
+                onClick = { selectedType = UserType.STUDENT }
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            UserTypeCard(
+                title = "Professor",
+                description = "Quero acompanhar o desempenho dos meus alunos e criar desafios",
+                icon = Icons.Outlined.SupervisorAccount,
+                isSelected = selectedType == UserType.TEACHER,
+                onClick = { selectedType = UserType.TEACHER }
+            )
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            UserTypeCard(
+                title = "Escola de Música",
+                description = "Quero gerenciar alunos, professores e turmas da minha escola",
+                icon = Icons.Filled.School,
+                isSelected = selectedType == UserType.SCHOOL,
+                onClick = { selectedType = UserType.SCHOOL }
+            )
+            
+            Spacer(modifier = Modifier.height(24.dp))
         }
         
-        Spacer(modifier = Modifier.height(24.dp))
+        // Fixed Continue Button at bottom
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.background)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
+        ) {
+            Button(
+                onClick = {
+                    selectedType?.let { type ->
+                        // Save to OnboardingManager and update user
+                        viewModel.saveUserType(type)
+                        onUserTypeSelected()
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = RoundedCornerShape(16.dp),
+                enabled = selectedType != null,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = if (selectedType != null) "Continuar" else "Selecione um perfil",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
 }
 
@@ -145,14 +165,14 @@ private fun UserTypeCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .then(
                 if (isSelected) {
                     Modifier.border(
-                        width = 2.dp,
+                        width = 3.dp,
                         color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(20.dp)
+                        shape = RoundedCornerShape(16.dp)
                     )
                 } else Modifier
             ),
@@ -163,18 +183,18 @@ private fun UserTypeCard(
                 MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 4.dp else 1.dp
+            defaultElevation = if (isSelected) 6.dp else 2.dp
         )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(16.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(16.dp))
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(12.dp))
                     .background(
                         if (isSelected) 
                             MaterialTheme.colorScheme.primary
@@ -186,7 +206,7 @@ private fun UserTypeCard(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(28.dp),
                     tint = if (isSelected) 
                         MaterialTheme.colorScheme.onPrimary
                     else 
@@ -194,11 +214,11 @@ private fun UserTypeCard(
                 )
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             Text(
                 text = title,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = if (isSelected) 
                     MaterialTheme.colorScheme.primary
@@ -210,7 +230,7 @@ private fun UserTypeCard(
             
             Text(
                 text = description,
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

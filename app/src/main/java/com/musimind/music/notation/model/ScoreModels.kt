@@ -56,7 +56,11 @@ data class Note(
     val voice: Int = 1,
     val finger: Int? = null, // Fingering 1-5
     val isGrace: Boolean = false,
-    val state: NoteState = NoteState.NORMAL // For visual feedback
+    val state: NoteState = NoteState.NORMAL, // For visual feedback
+    val pitchFeedback: FeedbackState = FeedbackState.NONE,    // Solfege: feedback for pitch (notehead)
+    val durationFeedback: FeedbackState = FeedbackState.NONE, // Solfege: feedback for duration (stem/beam)
+    val beatNumber: Float? = null,   // Beat start time (e.g., 1, 2, 2.5, 3)
+    val solfegeName: String? = null  // Solfege name (Dó, Ré, Mi...)
 ) : MusicElement()
 
 /**
@@ -192,6 +196,16 @@ enum class NoteState {
     INCORRECT,   // User made a mistake
     UPCOMING,    // Next note to play
     PASSED       // Already played in sequence
+}
+
+/**
+ * Feedback state for solfege exercises
+ * Allows separate feedback for pitch (notehead) and duration (stem/beam/flag)
+ */
+enum class FeedbackState {
+    NONE,      // No feedback yet
+    CORRECT,   // Green - correct
+    INCORRECT  // Red - incorrect
 }
 
 /**

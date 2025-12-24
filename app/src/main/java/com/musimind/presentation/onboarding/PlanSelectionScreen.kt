@@ -14,13 +14,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -39,66 +39,88 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.musimind.domain.model.Plan
-import com.musimind.presentation.auth.AuthViewModel
 import com.musimind.ui.theme.PlanAprendiz
 import com.musimind.ui.theme.PlanMaestro
 import com.musimind.ui.theme.PlanSpalla
 
 /**
  * Plan Selection Screen - Part of onboarding flow
+ * Uses Scaffold to ensure button is always visible at the bottom
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlanSelectionScreen(
     onPlanSelected: () -> Unit,
     onNavigateBack: () -> Unit,
-    viewModel: AuthViewModel = hiltViewModel()
+    viewModel: OnboardingViewModel = hiltViewModel()
 ) {
     var selectedPlan by remember { mutableStateOf<Plan?>(null) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        // Top App Bar
-        TopAppBar(
-            title = { },
-            navigationIcon = {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Voltar"
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Escolha seu Plano") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Voltar"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        },
+        bottomBar = {
+            // FIXED BOTTOM BUTTON - Always visible
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(horizontal = 24.dp, vertical = 16.dp)
+            ) {
+                Button(
+                    onClick = {
+                        selectedPlan?.let { plan ->
+                            viewModel.savePlan(plan)
+                            onPlanSelected()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = selectedPlan != null
+                ) {
+                    Text(
+                        text = when (selectedPlan) {
+                            Plan.APRENDIZ -> "Começar Grátis"
+                            null -> "Selecione um plano"
+                            else -> "Continuar"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.background
-            )
-        )
-        
+            }
+        }
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp),
+                .padding(paddingValues)
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
-            Text(
-                text = "Escolha seu Plano",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onBackground,
-                textAlign = TextAlign.Center
-            )
-            
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
@@ -108,7 +130,7 @@ fun PlanSelectionScreen(
                 textAlign = TextAlign.Center
             )
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
             // Plan Cards
             PlanCard(
@@ -166,33 +188,7 @@ fun PlanSelectionScreen(
                 onClick = { selectedPlan = Plan.MAESTRO }
             )
             
-            Spacer(modifier = Modifier.weight(1f))
-            
-            // Continue Button
-            Button(
-                onClick = {
-                    selectedPlan?.let { plan ->
-                        viewModel.updateUserPlan(plan)
-                        onPlanSelected()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                enabled = selectedPlan != null
-            ) {
-                Text(
-                    text = if (selectedPlan == Plan.APRENDIZ) 
-                        "Começar Grátis" 
-                    else 
-                        "Continuar",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -217,7 +213,7 @@ private fun PlanCard(
             .then(
                 if (isSelected) {
                     Modifier.border(
-                        width = 2.dp,
+                        width = 3.dp,
                         color = color,
                         shape = RoundedCornerShape(20.dp)
                     )
@@ -225,12 +221,12 @@ private fun PlanCard(
             ),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) 
-                color.copy(alpha = 0.1f)
+                color.copy(alpha = 0.15f)
             else 
                 MaterialTheme.colorScheme.surface
         ),
         elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 4.dp else 1.dp
+            defaultElevation = if (isSelected) 6.dp else 2.dp
         )
     ) {
         Column(

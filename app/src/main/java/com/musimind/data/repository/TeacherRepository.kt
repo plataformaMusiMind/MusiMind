@@ -1,29 +1,25 @@
 package com.musimind.data.repository
 
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
 import com.musimind.domain.model.*
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.tasks.await
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Repository for teacher/school functionality
+ * Uses Supabase Postgrest
  */
 @Singleton
 class TeacherRepository @Inject constructor(
-    private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val postgrest: Postgrest,
+    private val auth: Auth
 ) {
-    private val currentUserId: String? get() = auth.currentUser?.uid
-    
-    private val classesCollection get() = firestore.collection("classes")
-    private val assignmentsCollection get() = firestore.collection("assignments")
-    private val usersCollection get() = firestore.collection("users")
+    private val currentUserId: String? get() = auth.currentSessionOrNull()?.user?.id
     
     /**
      * Create a new class
@@ -31,7 +27,7 @@ class TeacherRepository @Inject constructor(
     suspend fun createClass(name: String, description: String): StudentClass {
         val teacherId = currentUserId ?: throw IllegalStateException("Not logged in")
         
-        val classId = classesCollection.document().id
+        val classId = UUID.randomUUID().toString()
         val inviteCode = generateInviteCode()
         
         val studentClass = StudentClass(
@@ -42,7 +38,7 @@ class TeacherRepository @Inject constructor(
             inviteCode = inviteCode
         )
         
-        classesCollection.document(classId).set(studentClass).await()
+        postgrest.from("classes").insert(studentClass)
         
         return studentClass
     }
@@ -58,11 +54,11 @@ class TeacherRepository @Inject constructor(
         val teacherId = currentUserId ?: return emptyList()
         
         return try {
-            classesCollection
-                .whereEqualTo("teacherId", teacherId)
-                .get()
-                .await()
-                .toObjects(StudentClass::class.java)
+            postgrest.from("classes")
+                .select {
+                    filter { eq("teacher_id", teacherId) }
+                }
+                .decodeList<StudentClass>()
         } catch (e: Exception) {
             emptyList()
         }
@@ -73,11 +69,17 @@ class TeacherRepository @Inject constructor(
      */
     suspend fun getClassStudents(classId: String): List<StudentProgress> {
         return try {
-            val classDoc = classesCollection.document(classId).get().await()
-            val studentClass = classDoc.toObject(StudentClass::class.java) ?: return emptyList()
+            val members = postgrest.from("school_members")
+                .select {
+                    filter { 
+                        eq("school_id", classId)
+                        eq("role", "student")
+                    }
+                }
+                .decodeList<SchoolMember>()
             
-            studentClass.students.mapNotNull { studentId ->
-                getStudentProgress(studentId)
+            members.mapNotNull { member ->
+                getStudentProgress(member.userId)
             }
         } catch (e: Exception) {
             emptyList()
@@ -89,20 +91,24 @@ class TeacherRepository @Inject constructor(
      */
     suspend fun getStudentProgress(studentId: String): StudentProgress? {
         return try {
-            val userDoc = usersCollection.document(studentId).get().await()
+            val user = postgrest.from("users")
+                .select {
+                    filter { eq("id", studentId) }
+                }
+                .decodeSingleOrNull<User>() ?: return null
             
             StudentProgress(
                 userId = studentId,
-                displayName = userDoc.getString("displayName") ?: "Aluno",
-                avatarUrl = userDoc.getString("avatarUrl"),
-                level = userDoc.getLong("level")?.toInt() ?: 1,
-                totalXp = userDoc.getLong("totalXp")?.toInt() ?: 0,
-                currentStreak = userDoc.getLong("currentStreak")?.toInt() ?: 0,
-                exercisesCompleted = userDoc.getLong("exercisesCompleted")?.toInt() ?: 0,
-                lessonsCompleted = userDoc.getLong("lessonsCompleted")?.toInt() ?: 0,
-                averageAccuracy = userDoc.getDouble("averageAccuracy")?.toFloat() ?: 0f,
-                lastActiveAt = userDoc.getLong("lastActiveAt") ?: 0,
-                weeklyXp = userDoc.getLong("weeklyXp")?.toInt() ?: 0
+                displayName = user.fullName.ifBlank { "Aluno" },
+                avatarUrl = user.avatarUrl,
+                level = user.level,
+                totalXp = user.xp,
+                currentStreak = user.streak,
+                exercisesCompleted = 0, // TODO: Track separately
+                lessonsCompleted = 0,
+                averageAccuracy = 0f,
+                lastActiveAt = 0L, // TODO: Parse from user.lastActiveAt
+                weeklyXp = 0
             )
         } catch (e: Exception) {
             null
@@ -116,19 +122,21 @@ class TeacherRepository @Inject constructor(
         val studentId = currentUserId ?: return false
         
         return try {
-            val classQuery = classesCollection
-                .whereEqualTo("inviteCode", inviteCode)
-                .get()
-                .await()
+            val school = postgrest.from("schools")
+                .select {
+                    filter { eq("invite_code", inviteCode) }
+                }
+                .decodeSingleOrNull<School>() ?: return false
             
-            if (classQuery.isEmpty) return false
+            postgrest.from("school_members").insert(
+                mapOf(
+                    "school_id" to school.id,
+                    "user_id" to studentId,
+                    "role" to "student",
+                    "status" to "active"
+                )
+            )
             
-            val classDoc = classQuery.documents.first()
-            val currentStudents = classDoc.get("students") as? List<*> ?: emptyList<String>()
-            
-            if (currentStudents.contains(studentId)) return true // Already joined
-            
-            classDoc.reference.update("students", currentStudents + studentId).await()
             true
         } catch (e: Exception) {
             false
@@ -140,12 +148,12 @@ class TeacherRepository @Inject constructor(
      */
     suspend fun removeStudentFromClass(classId: String, studentId: String) {
         try {
-            val classDoc = classesCollection.document(classId).get().await()
-            val currentStudents = classDoc.get("students") as? List<*> ?: return
-            
-            classesCollection.document(classId)
-                .update("students", currentStudents.filter { it != studentId })
-                .await()
+            postgrest.from("school_members").delete {
+                filter {
+                    eq("school_id", classId)
+                    eq("user_id", studentId)
+                }
+            }
         } catch (e: Exception) {
             // Handle error
         }
@@ -164,7 +172,7 @@ class TeacherRepository @Inject constructor(
     ): Assignment {
         val teacherId = currentUserId ?: throw IllegalStateException("Not logged in")
         
-        val assignmentId = assignmentsCollection.document().id
+        val assignmentId = UUID.randomUUID().toString()
         
         val assignment = Assignment(
             id = assignmentId,
@@ -177,7 +185,7 @@ class TeacherRepository @Inject constructor(
             dueDate = dueDate
         )
         
-        assignmentsCollection.document(assignmentId).set(assignment).await()
+        postgrest.from("assignments").insert(assignment)
         
         return assignment
     }
@@ -187,12 +195,12 @@ class TeacherRepository @Inject constructor(
      */
     suspend fun getClassAssignments(classId: String): List<Assignment> {
         return try {
-            assignmentsCollection
-                .whereEqualTo("classId", classId)
-                .orderBy("dueDate", Query.Direction.DESCENDING)
-                .get()
-                .await()
-                .toObjects(Assignment::class.java)
+            postgrest.from("assignments")
+                .select {
+                    filter { eq("class_id", classId) }
+                    order("due_date", Order.DESCENDING)
+                }
+                .decodeList<Assignment>()
         } catch (e: Exception) {
             emptyList()
         }
@@ -206,13 +214,20 @@ class TeacherRepository @Inject constructor(
         
         return try {
             val classes = getTeacherClasses()
-            val allStudentIds = classes.flatMap { it.students }.distinct()
+            val allStudentIds = mutableListOf<String>()
             
-            val studentProgresses = allStudentIds.mapNotNull { getStudentProgress(it) }
+            // Get all student IDs from all classes
+            for (classItem in classes) {
+                val students = getClassStudents(classItem.id)
+                allStudentIds.addAll(students.map { it.userId })
+            }
+            
+            val uniqueStudentIds = allStudentIds.distinct()
+            val studentProgresses = uniqueStudentIds.mapNotNull { getStudentProgress(it) }
             val oneWeekAgo = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000
             
             TeacherStats(
-                totalStudents = allStudentIds.size,
+                totalStudents = uniqueStudentIds.size,
                 totalClasses = classes.size,
                 activeStudentsThisWeek = studentProgresses.count { it.lastActiveAt > oneWeekAgo },
                 totalExercisesCompleted = studentProgresses.sumOf { it.exercisesCompleted },
@@ -236,6 +251,28 @@ class TeacherRepository @Inject constructor(
      * Delete a class
      */
     suspend fun deleteClass(classId: String) {
-        classesCollection.document(classId).delete().await()
+        postgrest.from("classes").delete {
+            filter { eq("id", classId) }
+        }
     }
 }
+
+// Helper data classes for Supabase response
+@kotlinx.serialization.Serializable
+private data class SchoolMember(
+    val id: String = "",
+    @kotlinx.serialization.SerialName("school_id")
+    val schoolId: String = "",
+    @kotlinx.serialization.SerialName("user_id")
+    val userId: String = "",
+    val role: String = "",
+    val status: String = ""
+)
+
+@kotlinx.serialization.Serializable
+private data class School(
+    val id: String = "",
+    val name: String = "",
+    @kotlinx.serialization.SerialName("invite_code")
+    val inviteCode: String? = null
+)

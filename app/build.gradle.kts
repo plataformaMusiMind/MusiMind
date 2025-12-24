@@ -5,7 +5,7 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.google.services)
+    // google-services plugin removed - using Supabase
 }
 
 android {
@@ -23,6 +23,10 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Supabase Configuration
+        buildConfigField("String", "SUPABASE_URL", "\"https://qspzqkyiemjtrlupfzuq.supabase.co\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFzcHpxa3lpZW1qdHJsdXBmenVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzYxMzksImV4cCI6MjA4MjE1MjEzOX0.aeVU-FgVOZ-haHg78hqpmlfTP48FUcqTz7sD7pkbM54\"")
     }
 
     buildTypes {
@@ -87,20 +91,13 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
     ksp(libs.hilt.android.compiler)
 
-    // Firebase
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth.ktx)
-    implementation(libs.firebase.firestore.ktx)
-    implementation(libs.firebase.database.ktx)
-    implementation(libs.firebase.storage.ktx)
-    implementation(libs.firebase.messaging.ktx)
-    implementation(libs.firebase.analytics.ktx)
-
-    // Google Auth
-    implementation(libs.play.services.auth)
-    implementation(libs.androidx.credentials)
-    implementation(libs.androidx.credentials.play.services)
-    implementation(libs.googleid)
+    // Supabase
+    implementation(platform(libs.supabase.bom))
+    implementation(libs.supabase.auth)
+    implementation(libs.supabase.postgrest)
+    implementation(libs.supabase.realtime)
+    implementation(libs.supabase.storage)
+    implementation(libs.ktor.client.android)
 
     // Room Database
     implementation(libs.room.runtime)
@@ -118,7 +115,6 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.coroutines.play.services)
 
     // Image Loading
     implementation(libs.coil.compose)

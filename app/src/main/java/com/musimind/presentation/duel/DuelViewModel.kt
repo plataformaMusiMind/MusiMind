@@ -2,12 +2,12 @@ package com.musimind.presentation.duel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.FirebaseAuth
 import com.musimind.data.repository.DuelRepository
 import com.musimind.domain.model.Duel
 import com.musimind.domain.model.DuelQuestion
 import com.musimind.domain.model.DuelStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -17,7 +17,7 @@ import javax.inject.Inject
 @HiltViewModel
 class DuelViewModel @Inject constructor(
     private val repository: DuelRepository,
-    private val auth: FirebaseAuth
+    private val auth: Auth
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(DuelState())
@@ -36,7 +36,8 @@ class DuelViewModel @Inject constructor(
                     return@collect
                 }
                 
-                val isChallenger = duel.challengerId == auth.currentUser?.uid
+                val currentUserId = auth.currentSessionOrNull()?.user?.id
+                val isChallenger = duel.challengerId == currentUserId
                 val currentAnswers = if (isChallenger) duel.challengerAnswers else duel.opponentAnswers
                 val questionIndex = currentAnswers.size
                 

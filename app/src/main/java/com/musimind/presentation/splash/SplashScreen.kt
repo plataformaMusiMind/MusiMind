@@ -30,16 +30,19 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.musimind.ui.theme.Primary
 import com.musimind.ui.theme.PrimaryVariant
-import kotlinx.coroutines.delay
 
 /**
  * Splash Screen with animated logo
+ * Navigates to appropriate screen based on auth and onboarding status
  */
 @Composable
 fun SplashScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToHome: () -> Unit,
-    onNavigateToOnboarding: () -> Unit = onNavigateToLogin, // Fallback to login if not provided
+    onNavigateToUserType: () -> Unit,
+    onNavigateToPlanSelection: () -> Unit,
+    onNavigateToAvatarSelection: () -> Unit,
+    onNavigateToTutorial: () -> Unit,
     viewModel: SplashViewModel = hiltViewModel()
 ) {
     val scale = remember { Animatable(0f) }
@@ -54,8 +57,17 @@ fun SplashScreen(
             is SplashDestination.Login -> {
                 onNavigateToLogin()
             }
-            is SplashDestination.Onboarding -> {
-                onNavigateToOnboarding()
+            is SplashDestination.UserType -> {
+                onNavigateToUserType()
+            }
+            is SplashDestination.PlanSelection -> {
+                onNavigateToPlanSelection()
+            }
+            is SplashDestination.AvatarSelection -> {
+                onNavigateToAvatarSelection()
+            }
+            is SplashDestination.OnboardingTutorial -> {
+                onNavigateToTutorial()
             }
             is SplashDestination.Home -> {
                 onNavigateToHome()

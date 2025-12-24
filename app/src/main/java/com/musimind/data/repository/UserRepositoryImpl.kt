@@ -1,37 +1,60 @@
 package com.musimind.data.repository
 
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.musimind.domain.model.User
-import kotlinx.coroutines.channels.awaitClose
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.flow.flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Implementation of UserRepository using Firebase Firestore
+ * Implementation of UserRepository using Supabase Postgrest
  */
 @Singleton
 class UserRepositoryImpl @Inject constructor(
-    private val firestore: FirebaseFirestore,
-    private val firebaseAuth: FirebaseAuth
+    private val postgrest: Postgrest,
+    private val auth: Auth
 ) : UserRepository {
     
-    private val usersCollection = firestore.collection("users")
+    private val usersTable = "users"
     
     override suspend fun getCurrentUser(): User? {
-        val userId = firebaseAuth.currentUser?.uid ?: return null
-        return getUserById(userId)
+        val authId = auth.currentSessionOrNull()?.user?.id ?: return null
+        return getUserByAuthId(authId)
+    }
+    
+    private suspend fun getUserByAuthId(authId: String): User? {
+        return try {
+            postgrest.from(usersTable)
+                .select {
+                    filter {
+                        eq("auth_id", authId)
+                    }
+                }
+                .decodeSingleOrNull<User>()
+        } catch (e: Exception) {
+            null
+        }
     }
     
     override suspend fun createOrUpdateUser(user: User): Result<Unit> {
         return try {
-            usersCollection.document(user.id)
-                .set(user, SetOptions.merge())
-                .await()
+            // Get the auth user id
+            val authId = auth.currentSessionOrNull()?.user?.id
+            
+            // Create user with auth_id linked
+            val userWithAuthId = if (authId != null && user.authId == null) {
+                user.copy(authId = authId)
+            } else {
+                user
+            }
+            
+            postgrest.from(usersTable).upsert(userWithAuthId) {
+                // Use auth_id as the conflict target
+                onConflict = "auth_id"
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -40,44 +63,70 @@ class UserRepositoryImpl @Inject constructor(
     
     override suspend fun getUserById(userId: String): User? {
         return try {
-            val doc = usersCollection.document(userId).get().await()
-            if (doc.exists()) {
-                doc.toObject(User::class.java)
+            // First try to get by id
+            val result = postgrest.from(usersTable)
+                .select {
+                    filter {
+                        eq("id", userId)
+                    }
+                }
+                .decodeSingleOrNull<User>()
+            
+            // If not found, try by auth_id
+            if (result == null) {
+                postgrest.from(usersTable)
+                    .select {
+                        filter {
+                            eq("auth_id", userId)
+                        }
+                    }
+                    .decodeSingleOrNull<User>()
             } else {
-                null
+                result
             }
         } catch (e: Exception) {
             null
         }
     }
     
-    override fun observeCurrentUser(): Flow<User?> = callbackFlow {
-        val userId = firebaseAuth.currentUser?.uid
+    override fun observeCurrentUser(): Flow<User?> = flow {
+        val authId = auth.currentSessionOrNull()?.user?.id
         
-        if (userId == null) {
-            trySend(null)
-            close()
-            return@callbackFlow
+        if (authId == null) {
+            emit(null)
+            return@flow
         }
         
-        val listener = usersCollection.document(userId)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    trySend(null)
-                    return@addSnapshotListener
-                }
-                
-                val user = snapshot?.toObject(User::class.java)
-                trySend(user)
-            }
-        
-        awaitClose { listener.remove() }
+        // For now, just emit current user once
+        // TODO: Implement Supabase Realtime subscription for live updates
+        val user = getUserByAuthId(authId)
+        emit(user)
     }
     
     override suspend fun userExists(userId: String): Boolean {
         return try {
-            val doc = usersCollection.document(userId).get().await()
-            doc.exists()
+            // Check by auth_id first
+            val result = postgrest.from(usersTable)
+                .select(columns = Columns.list("id")) {
+                    filter {
+                        eq("auth_id", userId)
+                    }
+                }
+                .decodeSingleOrNull<Map<String, String>>()
+            
+            if (result != null) {
+                true
+            } else {
+                // Also check by id
+                val resultById = postgrest.from(usersTable)
+                    .select(columns = Columns.list("id")) {
+                        filter {
+                            eq("id", userId)
+                        }
+                    }
+                    .decodeSingleOrNull<Map<String, String>>()
+                resultById != null
+            }
         } catch (e: Exception) {
             false
         }
@@ -85,20 +134,39 @@ class UserRepositoryImpl @Inject constructor(
     
     override suspend fun updateUserFields(userId: String, fields: Map<String, Any?>): Result<Unit> {
         return try {
-            usersCollection.document(userId)
-                .update(fields)
-                .await()
+            // Try update by auth_id first
+            postgrest.from(usersTable).update(fields) {
+                filter {
+                    eq("auth_id", userId)
+                }
+            }
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            // If that fails, try by id
+            try {
+                postgrest.from(usersTable).update(fields) {
+                    filter {
+                        eq("id", userId)
+                    }
+                }
+                Result.success(Unit)
+            } catch (e2: Exception) {
+                Result.failure(e2)
+            }
         }
+    }
+    
+    override suspend fun updateUserField(userId: String, field: String, value: Any?): Result<Unit> {
+        return updateUserFields(userId, mapOf(field to value))
     }
     
     override suspend fun deleteUser(userId: String): Result<Unit> {
         return try {
-            usersCollection.document(userId)
-                .delete()
-                .await()
+            postgrest.from(usersTable).delete {
+                filter {
+                    eq("auth_id", userId)
+                }
+            }
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

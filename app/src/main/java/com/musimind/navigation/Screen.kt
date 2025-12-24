@@ -11,6 +11,7 @@ sealed class Screen(val route: String) {
     data object UserType : Screen("user_type")
     data object PlanSelection : Screen("plan_selection")
     data object AvatarSelection : Screen("avatar_selection")
+    data object OnboardingTutorial : Screen("onboarding_tutorial")
     
     // Main Navigation
     data object Home : Screen("home")

@@ -166,7 +166,32 @@ class MidiPlayer @Inject constructor() {
     }
     
     /**
-     * Generate and play a sine wave tone
+     * Play metronome click sound
+     * @param isAccented true for first beat (louder), false for other beats
+     */
+    suspend fun playMetronomeClick(isAccented: Boolean = false) {
+        withContext(Dispatchers.Default) {
+            val frequency = if (isAccented) 1500f else 1200f // Higher pitch for accent
+            val durationMs = if (isAccented) 80 else 50
+            val velocity = if (isAccented) 1.0f else 0.6f
+            
+            val numSamples = (SAMPLE_RATE * durationMs / 1000)
+            val samples = ShortArray(numSamples)
+            
+            for (i in 0 until numSamples) {
+                val time = i.toDouble() / SAMPLE_RATE
+                // Click is a decaying sine wave
+                val decay = kotlin.math.exp(-time * 50.0)
+                val sample = kotlin.math.sin(2.0 * Math.PI * frequency * time) * decay
+                samples[i] = (sample * velocity * Short.MAX_VALUE).toInt().toShort()
+            }
+            
+            playAudioTrack(samples)
+        }
+    }
+    
+    /**
+     * Generate and play a piano-like tone with harmonics
      */
     private suspend fun playTone(
         frequency: Float,
@@ -175,20 +200,31 @@ class MidiPlayer @Inject constructor() {
     ) = withContext(Dispatchers.Default) {
         val numSamples = (SAMPLE_RATE * durationMs / 1000)
         val samples = ShortArray(numSamples)
-        val fadeInSamples = SAMPLE_RATE * FADE_DURATION_MS / 1000
-        val fadeOutStart = numSamples - fadeInSamples
+        val fadeInSamples = SAMPLE_RATE * 5 / 1000 // Quick attack (5ms)
         
         for (i in 0 until numSamples) {
             val time = i.toDouble() / SAMPLE_RATE
-            val sample = sin(2.0 * Math.PI * frequency * time)
             
-            val envelope = when {
-                i < fadeInSamples -> i.toDouble() / fadeInSamples
-                i > fadeOutStart -> (numSamples - i).toDouble() / fadeInSamples
-                else -> 1.0
-            }
+            // Piano-like sound: fundamental + harmonics with decay
+            val fundamental = sin(2.0 * Math.PI * frequency * time)
+            val harmonic2 = sin(2.0 * Math.PI * frequency * 2 * time) * 0.5
+            val harmonic3 = sin(2.0 * Math.PI * frequency * 3 * time) * 0.25
+            val harmonic4 = sin(2.0 * Math.PI * frequency * 4 * time) * 0.125
+            val harmonic5 = sin(2.0 * Math.PI * frequency * 5 * time) * 0.0625
             
-            samples[i] = (sample * envelope * velocity * Short.MAX_VALUE).toInt().toShort()
+            var sample = (fundamental + harmonic2 + harmonic3 + harmonic4 + harmonic5) / 1.9375
+            
+            // ADSR-like envelope: quick attack, slight decay, sustain, release
+            val attackEnv = if (i < fadeInSamples) i.toDouble() / fadeInSamples else 1.0
+            val decayEnv = kotlin.math.exp(-time * 2.0) * 0.3 + 0.7 // Decay to 70%
+            val releaseStart = numSamples - SAMPLE_RATE * 50 / 1000
+            val releaseEnv = if (i > releaseStart) {
+                (numSamples - i).toDouble() / (numSamples - releaseStart)
+            } else 1.0
+            
+            val envelope = attackEnv * decayEnv * releaseEnv
+            
+            samples[i] = (sample * envelope * velocity * Short.MAX_VALUE * 0.8).toInt().toShort()
         }
         
         playAudioTrack(samples)

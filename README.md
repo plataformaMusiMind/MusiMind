@@ -37,7 +37,7 @@ Inspirado no Duolingo, o MusiMind oferece uma experiência envolvente de aprendi
 ## 🛠️ Tecnologias
 
 - **Kotlin** + **Jetpack Compose** (Material 3)
-- **Firebase** (Auth, Firestore, Realtime DB)
+- **Supabase** (Auth, Postgrest, Realtime, Storage)
 - **Hilt** para injeção de dependência
 - **Room** para banco de dados local
 - **Detecção de pitch nativa** (algoritmo YIN)
@@ -50,9 +50,19 @@ Inspirado no Duolingo, o MusiMind oferece uma experiência envolvente de aprendi
 ## 🚀 Configuração
 
 1. Clone o repositório
-2. Adicione seu `google-services.json` do Firebase
-3. Baixe as fontes Bravura para `app/src/main/assets/fonts/`
-4. Sincronize e compile no Android Studio
+2. Configure as credenciais do Supabase em `app/build.gradle.kts`:
+   ```kotlin
+   buildConfigField("String", "SUPABASE_URL", "\"sua-url\"")
+   buildConfigField("String", "SUPABASE_ANON_KEY", "\"sua-key\"")
+   ```
+3. Execute o script SQL em `database/001_initial_schema.sql` no Supabase SQL Editor
+4. Baixe as fontes Bravura para `app/src/main/assets/fonts/`
+5. Sincronize e compile no Android Studio
+
+## 🗄️ Estrutura do Banco de Dados
+
+Os scripts SQL estão em `/database`:
+- `001_initial_schema.sql` - Tabelas, RLS e triggers
 
 ## 📄 Licença
 

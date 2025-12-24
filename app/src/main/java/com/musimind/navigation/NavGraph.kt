@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import com.musimind.presentation.auth.LoginScreen
 import com.musimind.presentation.auth.RegisterScreen
 import com.musimind.presentation.onboarding.AvatarSelectionScreen
+import com.musimind.presentation.onboarding.OnboardingTutorialScreen
 import com.musimind.presentation.onboarding.PlanSelectionScreen
 import com.musimind.presentation.onboarding.UserTypeScreen
 import com.musimind.presentation.splash.SplashScreen
@@ -59,7 +60,7 @@ fun MusiMindNavGraph(
             )
         }
     ) {
-        // Splash Screen
+        // Splash Screen - Entry point that determines where to navigate
         composable(Screen.Splash.route) {
             SplashScreen(
                 onNavigateToLogin = {
@@ -72,8 +73,23 @@ fun MusiMindNavGraph(
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 },
-                onNavigateToOnboarding = {
+                onNavigateToUserType = {
                     navController.navigate(Screen.UserType.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToPlanSelection = {
+                    navController.navigate(Screen.PlanSelection.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToAvatarSelection = {
+                    navController.navigate(Screen.AvatarSelection.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToTutorial = {
+                    navController.navigate(Screen.OnboardingTutorial.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 }
@@ -87,7 +103,8 @@ fun MusiMindNavGraph(
                     navController.navigate(Screen.Register.route)
                 },
                 onLoginSuccess = {
-                    navController.navigate(Screen.Home.route) {
+                    // After login, go to splash to check onboarding status
+                    navController.navigate(Screen.Splash.route) {
                         popUpTo(Screen.Login.route) { inclusive = true }
                     }
                 },
@@ -110,7 +127,7 @@ fun MusiMindNavGraph(
             )
         }
 
-        // Onboarding Screens
+        // Onboarding Screens - Must complete in order
         composable(Screen.UserType.route) {
             UserTypeScreen(
                 onUserTypeSelected = {
@@ -131,11 +148,19 @@ fun MusiMindNavGraph(
         composable(Screen.AvatarSelection.route) {
             AvatarSelectionScreen(
                 onComplete = {
+                    navController.navigate(Screen.OnboardingTutorial.route)
+                },
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.OnboardingTutorial.route) {
+            OnboardingTutorialScreen(
+                onComplete = {
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
-                },
-                onNavigateBack = { navController.popBackStack() }
+                }
             )
         }
 
@@ -250,6 +275,25 @@ fun MusiMindNavGraph(
         ) { backStackEntry ->
             val exerciseId = backStackEntry.arguments?.getString("exerciseId") ?: ""
             com.musimind.presentation.exercise.IntervalExerciseScreen(
+                exerciseId = exerciseId,
+                onBack = { navController.popBackStack() },
+                onComplete = { score, total ->
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        // Melodic Perception Exercise
+        composable(
+            route = Screen.MelodyExercise.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("exerciseId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val exerciseId = backStackEntry.arguments?.getString("exerciseId") ?: ""
+            com.musimind.presentation.exercise.MelodicPerceptionScreen(
                 exerciseId = exerciseId,
                 onBack = { navController.popBackStack() },
                 onComplete = { score, total ->

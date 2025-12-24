@@ -1,33 +1,25 @@
 package com.musimind.data.repository
 
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
 import com.musimind.domain.model.*
-import kotlinx.coroutines.channels.awaitClose
+import io.github.jan.supabase.auth.Auth
+import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.realtime.Realtime
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.flow.flow
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Repository for duels and multiplayer games
- * Uses Realtime Database for low-latency updates
+ * Uses Supabase Postgrest and Realtime
  */
 @Singleton
 class DuelRepository @Inject constructor(
-    private val realtimeDb: FirebaseDatabase,
-    private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val postgrest: Postgrest,
+    private val auth: Auth
 ) {
-    private val currentUserId: String? get() = auth.currentUser?.uid
-    
-    // Realtime Database references
-    private val duelsRef get() = realtimeDb.getReference("duels")
-    private val challengesRef get() = realtimeDb.getReference("challenges")
-    private val quizRoomsRef get() = realtimeDb.getReference("quiz_rooms")
+    private val currentUserId: String? get() = auth.currentSessionOrNull()?.user?.id
     
     /**
      * Create a new duel challenge
@@ -39,24 +31,26 @@ class DuelRepository @Inject constructor(
         val userId = currentUserId ?: throw IllegalStateException("Not logged in")
         
         // Get current user name
-        val userDoc = firestore.collection("users").document(userId).get().await()
-        val userName = userDoc.getString("displayName") ?: "Anônimo"
+        val user = postgrest.from("users")
+            .select {
+                filter { eq("auth_id", userId) }
+            }
+            .decodeSingleOrNull<User>()
         
-        val challengeId = challengesRef.push().key ?: throw Exception("Could not create challenge")
+        val userName = user?.fullName ?: "Anônimo"
+        val challengeId = UUID.randomUUID().toString()
         
-        val challenge = DuelChallenge(
-            id = challengeId,
-            fromUserId = userId,
-            fromUserName = userName,
-            toUserId = opponentId,
-            category = category
+        val challenge = mapOf(
+            "id" to challengeId,
+            "from_user_id" to userId,
+            "from_user_name" to userName,
+            "to_user_id" to opponentId,
+            "category" to category.name,
+            "status" to ChallengeStatus.PENDING.name,
+            "created_at" to System.currentTimeMillis()
         )
         
-        challengesRef.child(challengeId).setValue(challenge).await()
-        
-        // Also add to opponent's pending challenges
-        realtimeDb.getReference("user_challenges/$opponentId/$challengeId")
-            .setValue(true).await()
+        postgrest.from("challenges").insert(challenge)
         
         return challengeId
     }
@@ -67,20 +61,27 @@ class DuelRepository @Inject constructor(
     suspend fun acceptChallenge(challengeId: String): String {
         val userId = currentUserId ?: throw IllegalStateException("Not logged in")
         
-        val challengeSnapshot = challengesRef.child(challengeId).get().await()
-        val challenge = challengeSnapshot.getValue(DuelChallenge::class.java)
-            ?: throw Exception("Challenge not found")
+        val challenge = postgrest.from("challenges")
+            .select {
+                filter { eq("id", challengeId) }
+            }
+            .decodeSingleOrNull<DuelChallenge>() ?: throw Exception("Challenge not found")
         
         if (challenge.toUserId != userId) {
             throw Exception("This challenge is not for you")
         }
         
         // Get opponent name
-        val userDoc = firestore.collection("users").document(userId).get().await()
-        val userName = userDoc.getString("displayName") ?: "Anônimo"
+        val user = postgrest.from("users")
+            .select {
+                filter { eq("auth_id", userId) }
+            }
+            .decodeSingleOrNull<User>()
+        
+        val userName = user?.fullName ?: "Anônimo"
         
         // Create the duel
-        val duelId = duelsRef.push().key ?: throw Exception("Could not create duel")
+        val duelId = UUID.randomUUID().toString()
         val questions = when (challenge.category) {
             MusicCategory.INTERVAL_PERCEPTION -> DuelQuestions.generateIntervalQuestions()
             MusicCategory.SOLFEGE -> DuelQuestions.generateNoteQuestions()
@@ -98,11 +99,14 @@ class DuelRepository @Inject constructor(
             status = DuelStatus.ACCEPTED
         )
         
-        duelsRef.child(duelId).setValue(duel).await()
+        postgrest.from("duels").insert(duel)
         
         // Update challenge status
-        challengesRef.child(challengeId).child("status")
-            .setValue(ChallengeStatus.ACCEPTED.name).await()
+        postgrest.from("challenges").update(
+            mapOf("status" to ChallengeStatus.ACCEPTED.name)
+        ) {
+            filter { eq("id", challengeId) }
+        }
         
         return duelId
     }
@@ -111,58 +115,55 @@ class DuelRepository @Inject constructor(
      * Decline a challenge
      */
     suspend fun declineChallenge(challengeId: String) {
-        challengesRef.child(challengeId).child("status")
-            .setValue(ChallengeStatus.DECLINED.name).await()
+        postgrest.from("challenges").update(
+            mapOf("status" to ChallengeStatus.DECLINED.name)
+        ) {
+            filter { eq("id", challengeId) }
+        }
     }
     
     /**
      * Get pending challenges for current user
      */
-    fun getPendingChallenges(): Flow<List<DuelChallenge>> = callbackFlow {
+    fun getPendingChallenges(): Flow<List<DuelChallenge>> = flow {
         val userId = currentUserId ?: run {
-            trySend(emptyList())
-            close()
-            return@callbackFlow
+            emit(emptyList())
+            return@flow
         }
         
-        val query = challengesRef
-            .orderByChild("toUserId")
-            .equalTo(userId)
-        
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val challenges = snapshot.children.mapNotNull {
-                    it.getValue(DuelChallenge::class.java)
-                }.filter { it.status == ChallengeStatus.PENDING }
-                trySend(challenges)
-            }
+        try {
+            val challenges = postgrest.from("challenges")
+                .select {
+                    filter { 
+                        eq("to_user_id", userId)
+                        eq("status", ChallengeStatus.PENDING.name)
+                    }
+                }
+                .decodeList<DuelChallenge>()
             
-            override fun onCancelled(error: DatabaseError) {
-                trySend(emptyList())
-            }
+            emit(challenges)
+        } catch (e: Exception) {
+            emit(emptyList())
         }
-        
-        query.addValueEventListener(listener)
-        awaitClose { query.removeEventListener(listener) }
     }
     
     /**
      * Observe a duel in real-time
      */
-    fun observeDuel(duelId: String): Flow<Duel?> = callbackFlow {
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val duel = snapshot.getValue(Duel::class.java)
-                trySend(duel)
-            }
+    fun observeDuel(duelId: String): Flow<Duel?> = flow {
+        // TODO: Implement with Supabase Realtime for live updates
+        // For now, just fetch once
+        try {
+            val duel = postgrest.from("duels")
+                .select {
+                    filter { eq("id", duelId) }
+                }
+                .decodeSingleOrNull<Duel>()
             
-            override fun onCancelled(error: DatabaseError) {
-                trySend(null)
-            }
+            emit(duel)
+        } catch (e: Exception) {
+            emit(null)
         }
-        
-        duelsRef.child(duelId).addValueEventListener(listener)
-        awaitClose { duelsRef.child(duelId).removeEventListener(listener) }
     }
     
     /**
@@ -175,8 +176,12 @@ class DuelRepository @Inject constructor(
         timeMs: Long
     ) {
         val userId = currentUserId ?: return
-        val duelSnapshot = duelsRef.child(duelId).get().await()
-        val duel = duelSnapshot.getValue(Duel::class.java) ?: return
+        
+        val duel = postgrest.from("duels")
+            .select {
+                filter { eq("id", duelId) }
+            }
+            .decodeSingleOrNull<Duel>() ?: return
         
         val question = duel.questions.find { it.id == questionId } ?: return
         val isCorrect = answerIndex == question.correctAnswerIndex
@@ -190,18 +195,23 @@ class DuelRepository @Inject constructor(
         
         // Determine if user is challenger or opponent
         val isChallenger = userId == duel.challengerId
-        val answersPath = if (isChallenger) "challengerAnswers" else "opponentAnswers"
-        val scorePath = if (isChallenger) "challengerScore" else "opponentScore"
-        
-        // Add answer
         val currentAnswers = if (isChallenger) duel.challengerAnswers else duel.opponentAnswers
         val newAnswers = currentAnswers + answer
-        duelsRef.child(duelId).child(answersPath).setValue(newAnswers).await()
         
-        // Update score if correct
-        if (isCorrect) {
-            val currentScore = if (isChallenger) duel.challengerScore else duel.opponentScore
-            duelsRef.child(duelId).child(scorePath).setValue(currentScore + 1).await()
+        val updates = if (isChallenger) {
+            mapOf(
+                "challenger_answers" to newAnswers,
+                "challenger_score" to if (isCorrect) duel.challengerScore + 1 else duel.challengerScore
+            )
+        } else {
+            mapOf(
+                "opponent_answers" to newAnswers,
+                "opponent_score" to if (isCorrect) duel.opponentScore + 1 else duel.opponentScore
+            )
+        }
+        
+        postgrest.from("duels").update(updates) {
+            filter { eq("id", duelId) }
         }
         
         // Check if both players answered all questions
@@ -209,8 +219,11 @@ class DuelRepository @Inject constructor(
     }
     
     private suspend fun checkDuelCompletion(duelId: String) {
-        val duelSnapshot = duelsRef.child(duelId).get().await()
-        val duel = duelSnapshot.getValue(Duel::class.java) ?: return
+        val duel = postgrest.from("duels")
+            .select {
+                filter { eq("id", duelId) }
+            }
+            .decodeSingleOrNull<Duel>() ?: return
         
         val totalQuestions = duel.questions.size
         val challengerComplete = duel.challengerAnswers.size >= totalQuestions
@@ -226,20 +239,28 @@ class DuelRepository @Inject constructor(
             
             val updates = mapOf(
                 "status" to DuelStatus.COMPLETED.name,
-                "winnerId" to winnerId,
-                "endedAt" to System.currentTimeMillis()
+                "winner_id" to winnerId,
+                "ended_at" to System.currentTimeMillis()
             )
             
-            duelsRef.child(duelId).updateChildren(updates).await()
+            postgrest.from("duels").update(updates) {
+                filter { eq("id", duelId) }
+            }
             
             // Award XP to winner
             winnerId?.let { id ->
-                firestore.runTransaction { transaction ->
-                    val userRef = firestore.collection("users").document(id)
-                    val user = transaction.get(userRef)
-                    val currentXp = user.getLong("totalXp")?.toInt() ?: 0
-                    transaction.update(userRef, "totalXp", currentXp + duel.xpReward)
-                    transaction.update(userRef, "duelsWon", FieldValue.increment(1))
+                val user = postgrest.from("users")
+                    .select {
+                        filter { eq("auth_id", id) }
+                    }
+                    .decodeSingleOrNull<User>()
+                
+                if (user != null) {
+                    postgrest.from("users").update(
+                        mapOf("xp" to user.xp + duel.xpReward)
+                    ) {
+                        filter { eq("auth_id", id) }
+                    }
                 }
             }
         }
@@ -252,23 +273,20 @@ class DuelRepository @Inject constructor(
         val userId = currentUserId ?: return emptyList()
         
         return try {
-            val asChallenger = duelsRef
-                .orderByChild("challengerId")
-                .equalTo(userId)
-                .limitToLast(limit)
-                .get()
-                .await()
-                .children
-                .mapNotNull { it.getValue(Duel::class.java) }
+            // Get duels where user is challenger or opponent
+            val asChallenger = postgrest.from("duels")
+                .select {
+                    filter { eq("challenger_id", userId) }
+                    limit(limit.toLong())
+                }
+                .decodeList<Duel>()
             
-            val asOpponent = duelsRef
-                .orderByChild("opponentId")
-                .equalTo(userId)
-                .limitToLast(limit)
-                .get()
-                .await()
-                .children
-                .mapNotNull { it.getValue(Duel::class.java) }
+            val asOpponent = postgrest.from("duels")
+                .select {
+                    filter { eq("opponent_id", userId) }
+                    limit(limit.toLong())
+                }
+                .decodeList<Duel>()
             
             (asChallenger + asOpponent)
                 .filter { it.status == DuelStatus.COMPLETED }
@@ -282,30 +300,31 @@ class DuelRepository @Inject constructor(
     /**
      * Get active duels for current user
      */
-    fun getActiveDuels(): Flow<List<Duel>> = callbackFlow {
+    fun getActiveDuels(): Flow<List<Duel>> = flow {
         val userId = currentUserId ?: run {
-            trySend(emptyList())
-            close()
-            return@callbackFlow
+            emit(emptyList())
+            return@flow
         }
         
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val duels = snapshot.children.mapNotNull { 
-                    it.getValue(Duel::class.java) 
-                }.filter { duel ->
-                    (duel.challengerId == userId || duel.opponentId == userId) &&
-                    duel.status in listOf(DuelStatus.ACCEPTED, DuelStatus.IN_PROGRESS)
+        try {
+            val asChallenger = postgrest.from("duels")
+                .select {
+                    filter { eq("challenger_id", userId) }
                 }
-                trySend(duels)
-            }
+                .decodeList<Duel>()
             
-            override fun onCancelled(error: DatabaseError) {
-                trySend(emptyList())
-            }
+            val asOpponent = postgrest.from("duels")
+                .select {
+                    filter { eq("opponent_id", userId) }
+                }
+                .decodeList<Duel>()
+            
+            val activeDuels = (asChallenger + asOpponent)
+                .filter { it.status in listOf(DuelStatus.ACCEPTED, DuelStatus.IN_PROGRESS) }
+            
+            emit(activeDuels)
+        } catch (e: Exception) {
+            emit(emptyList())
         }
-        
-        duelsRef.addValueEventListener(listener)
-        awaitClose { duelsRef.removeEventListener(listener) }
     }
 }

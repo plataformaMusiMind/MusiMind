@@ -2,14 +2,13 @@ package com.musimind.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.auth.FirebaseAuth
-import com.musimind.domain.model.LearningNode
+import com.musimind.data.repository.UserRepository
 import com.musimind.domain.model.LevelSystem
 import com.musimind.domain.model.MusicCategory
-import com.musimind.domain.model.NodePosition
 import com.musimind.domain.model.NodeStatus
 import com.musimind.domain.model.NodeType
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.jan.supabase.auth.Auth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,7 +47,8 @@ data class HomeUiState(
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val firebaseAuth: FirebaseAuth
+    private val auth: Auth,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -61,23 +61,35 @@ class HomeViewModel @Inject constructor(
 
     private fun loadUserData() {
         viewModelScope.launch {
-            // TODO: Load from Firebase
-            // For now, use sample data
-            val sampleXp = 150
-            val level = LevelSystem.getLevelForXp(sampleXp)
-            val progress = LevelSystem.getXpProgress(sampleXp)
-            val xpToNext = LevelSystem.getXpForLevel(level + 1)
-            
-            _uiState.update {
-                it.copy(
-                    xp = sampleXp,
-                    level = level,
-                    levelProgress = progress,
-                    xpToNextLevel = xpToNext,
-                    streak = 3,
-                    lives = 5,
-                    isLoading = false
-                )
+            try {
+                val user = userRepository.getCurrentUser()
+                
+                if (user != null) {
+                    val level = LevelSystem.getLevelForXp(user.xp)
+                    val progress = LevelSystem.getXpProgress(user.xp)
+                    val xpToNext = LevelSystem.getXpForLevel(level + 1)
+                    
+                    _uiState.update {
+                        it.copy(
+                            xp = user.xp,
+                            level = level,
+                            levelProgress = progress,
+                            xpToNextLevel = xpToNext,
+                            streak = user.streak,
+                            lives = user.lives,
+                            isLoading = false
+                        )
+                    }
+                } else {
+                    // Use default values
+                    _uiState.update {
+                        it.copy(isLoading = false)
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoading = false)
+                }
             }
         }
     }

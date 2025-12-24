@@ -1,5 +1,6 @@
 package com.musimind.domain.model
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -23,45 +24,89 @@ enum class Plan(val price: Double, val displayName: String) {
 }
 
 /**
+ * Billing cycle for subscriptions
+ */
+@Serializable
+enum class BillingCycle {
+    MONTHLY,
+    ANNUAL
+}
+
+/**
  * Authentication provider type
  */
 @Serializable
 enum class AuthProvider {
     EMAIL,
-    GOOGLE
+    GOOGLE,
+    APPLE
 }
 
 /**
  * Main User domain model
+ * Matches the Supabase users table schema
  */
 @Serializable
 data class User(
     val id: String = "",
+    
+    @SerialName("auth_id")
+    val authId: String? = null,
+    
     val email: String = "",
+    
+    @SerialName("full_name")
     val fullName: String = "",
+    
     val phone: String? = null,
+    
+    @SerialName("avatar_url")
     val avatarUrl: String? = null,
+    
+    val bio: String? = null,
+    
+    @SerialName("user_type")
     val userType: UserType = UserType.STUDENT,
+    
+    @SerialName("subscription_plan")
     val plan: Plan = Plan.APRENDIZ,
+    
+    @SerialName("billing_cycle")
+    val billingCycle: BillingCycle = BillingCycle.MONTHLY,
+    
+    @SerialName("subscription_expires_at")
+    val subscriptionExpiresAt: String? = null,
+    
+    @SerialName("auth_provider")
     val authProvider: AuthProvider = AuthProvider.EMAIL,
     
     // Gamification stats
     val xp: Int = 0,
     val level: Int = 1,
     val streak: Int = 0,
+    
+    @SerialName("longest_streak")
     val longestStreak: Int = 0,
+    
     val coins: Int = 0,
     val lives: Int = 5,
     
-    // Relationships
-    val teacherId: String? = null,      // For students linked to a teacher
-    val schoolId: String? = null,       // For members of a school
-    val friendIds: List<String> = emptyList(),
+    @SerialName("max_lives")
+    val maxLives: Int = 5,
+    
+    // Streak tracking
+    @SerialName("last_streak_date")
+    val lastStreakDate: String? = null,
     
     // Timestamps
-    val createdAt: Long = System.currentTimeMillis(),
-    val lastActiveAt: Long = System.currentTimeMillis(),
-    val lastStreakDate: String? = null  // ISO date format
+    @SerialName("created_at")
+    val createdAt: String? = null,
+    
+    @SerialName("updated_at")
+    val updatedAt: String? = null,
+    
+    @SerialName("last_active_at")
+    val lastActiveAt: String? = null
 )
 
 /**
@@ -70,11 +115,18 @@ data class User(
 @Serializable
 data class UserSummary(
     val id: String,
+    
+    @SerialName("full_name")
     val fullName: String,
+    
+    @SerialName("avatar_url")
     val avatarUrl: String?,
+    
     val level: Int,
     val xp: Int,
     val streak: Int,
+    
+    @SerialName("user_type")
     val userType: UserType
 )
 
