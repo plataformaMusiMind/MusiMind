@@ -1,0 +1,16 @@
+Nome do alias: androiddebugkey
+Data de criação: 23 de dez. de 2025
+Tipo de entrada: PrivateKeyEntry
+Comprimento da cadeia de certificados: 1
+Certificado[1]:
+erro de keytool: java.util.MissingFormatArgumentException: Format specifier '%2$s'
+java.util.MissingFormatArgumentException: Format specifier '%2$s'
+	at java.base/java.util.Formatter.format(Formatter.java:2766)
+	at java.base/java.util.Formatter.format(Formatter.java:2698)
+	at java.base/java.lang.String.format(String.java:4455)
+	at java.base/sun.security.tools.keytool.Main.withWeakConstraint(Main.java:3629)
+	at java.base/sun.security.tools.keytool.Main.printX509Cert(Main.java:3660)
+	at java.base/sun.security.tools.keytool.Main.doPrintEntry(Main.java:2268)
+	at java.base/sun.security.tools.keytool.Main.doCommands(Main.java:1294)
+	at java.base/sun.security.tools.keytool.Main.run(Main.java:419)
+	at java.base/sun.security.tools.keytool.Main.main(Main.java:400)

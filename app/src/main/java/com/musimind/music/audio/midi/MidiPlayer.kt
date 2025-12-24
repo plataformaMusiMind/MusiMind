@@ -1,33 +1,28 @@
 package com.musimind.music.audio.midi
 
-import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import com.musimind.music.notation.model.Pitch
-import com.musimind.music.audio.pitch.PitchUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.pow
 import kotlin.math.sin
 
 /**
  * Simple MIDI-like synthesizer for playing notes
- * 
- * Generates sine wave tones for note playback.
- * For a full MIDI implementation, consider using FluidSynth or a SoundFont library.
  */
 @Singleton
-class MidiPlayer @Inject constructor(
-    private val context: Context
-) {
+class MidiPlayer @Inject constructor() {
     companion object {
         private const val SAMPLE_RATE = 44100
         private const val DEFAULT_DURATION_MS = 500
-        private const val FADE_DURATION_MS = 20 // Fade in/out to avoid clicks
+        private const val FADE_DURATION_MS = 20
+        private const val A4_FREQUENCY = 440.0f
     }
     
     private val _state = MutableStateFlow(MidiPlayerState())
@@ -37,10 +32,10 @@ class MidiPlayer @Inject constructor(
     private var currentPlayJob: Job? = null
     
     /**
-     * Play a single pitch
+     * Play a single pitch by MIDI note number
      */
-    fun playPitch(
-        pitch: Pitch,
+    fun playMidiNote(
+        midiNote: Int,
         durationMs: Int = DEFAULT_DURATION_MS,
         velocity: Float = 0.8f
     ) {
@@ -49,19 +44,31 @@ class MidiPlayer @Inject constructor(
             try {
                 _state.value = _state.value.copy(
                     isPlaying = true,
-                    currentPitch = pitch
+                    currentMidiNote = midiNote
                 )
                 
-                val frequency = PitchUtils.pitchToFrequency(pitch)
+                val frequency = midiToFrequency(midiNote)
                 playTone(frequency, durationMs, velocity)
                 
             } finally {
                 _state.value = _state.value.copy(
                     isPlaying = false,
-                    currentPitch = null
+                    currentMidiNote = null
                 )
             }
         }
+    }
+    
+    /**
+     * Play a pitch from notation model
+     */
+    fun playPitch(
+        pitch: Pitch,
+        durationMs: Int = DEFAULT_DURATION_MS,
+        velocity: Float = 0.8f
+    ) {
+        val midiNote = pitchToMidi(pitch)
+        playMidiNote(midiNote, durationMs, velocity)
     }
     
     /**
@@ -77,12 +84,13 @@ class MidiPlayer @Inject constructor(
             for (pitch in pitches) {
                 if (!isActive) break
                 
+                val midiNote = pitchToMidi(pitch)
                 _state.value = _state.value.copy(
                     isPlaying = true,
-                    currentPitch = pitch
+                    currentMidiNote = midiNote
                 )
                 
-                val frequency = PitchUtils.pitchToFrequency(pitch)
+                val frequency = midiToFrequency(midiNote)
                 playTone(frequency, durationMsPerNote, velocity)
                 
                 delay(50) // Small gap between notes
@@ -90,7 +98,7 @@ class MidiPlayer @Inject constructor(
             
             _state.value = _state.value.copy(
                 isPlaying = false,
-                currentPitch = null
+                currentMidiNote = null
             )
         }
     }
@@ -108,17 +116,16 @@ class MidiPlayer @Inject constructor(
             try {
                 _state.value = _state.value.copy(
                     isPlaying = true,
-                    currentPitch = pitches.firstOrNull()
+                    currentMidiNote = pitches.firstOrNull()?.let { pitchToMidi(it) }
                 )
                 
-                // Generate combined waveform
-                val frequencies = pitches.map { PitchUtils.pitchToFrequency(it) }
+                val frequencies = pitches.map { midiToFrequency(pitchToMidi(it)) }
                 playMultipleTones(frequencies, durationMs, velocity)
                 
             } finally {
                 _state.value = _state.value.copy(
                     isPlaying = false,
-                    currentPitch = null
+                    currentMidiNote = null
                 )
             }
         }
@@ -132,8 +139,30 @@ class MidiPlayer @Inject constructor(
         currentPlayJob = null
         _state.value = _state.value.copy(
             isPlaying = false,
-            currentPitch = null
+            currentMidiNote = null
         )
+    }
+    
+    /**
+     * Convert MIDI note to frequency
+     */
+    private fun midiToFrequency(midiNote: Int): Float {
+        return A4_FREQUENCY * 2f.pow((midiNote - 69) / 12f)
+    }
+    
+    /**
+     * Convert Pitch to MIDI note number
+     */
+    private fun pitchToMidi(pitch: Pitch): Int {
+        val noteValues = mapOf(
+            "C" to 0, "D" to 2, "E" to 4, "F" to 5, 
+            "G" to 7, "A" to 9, "B" to 11
+        )
+        val baseNote = noteValues[pitch.note.name] ?: 0
+        val octave = pitch.octave
+        val alteration = pitch.alteration
+        
+        return (octave + 1) * 12 + baseNote + alteration
     }
     
     /**
@@ -149,12 +178,10 @@ class MidiPlayer @Inject constructor(
         val fadeInSamples = SAMPLE_RATE * FADE_DURATION_MS / 1000
         val fadeOutStart = numSamples - fadeInSamples
         
-        // Generate sine wave with envelope
         for (i in 0 until numSamples) {
             val time = i.toDouble() / SAMPLE_RATE
             val sample = sin(2.0 * Math.PI * frequency * time)
             
-            // Apply fade in/out envelope
             val envelope = when {
                 i < fadeInSamples -> i.toDouble() / fadeInSamples
                 i > fadeOutStart -> (numSamples - i).toDouble() / fadeInSamples
@@ -164,7 +191,6 @@ class MidiPlayer @Inject constructor(
             samples[i] = (sample * envelope * velocity * Short.MAX_VALUE).toInt().toShort()
         }
         
-        // Play using AudioTrack
         playAudioTrack(samples)
     }
     
@@ -181,20 +207,15 @@ class MidiPlayer @Inject constructor(
         val fadeInSamples = SAMPLE_RATE * FADE_DURATION_MS / 1000
         val fadeOutStart = numSamples - fadeInSamples
         
-        // Generate combined sine waves
         for (i in 0 until numSamples) {
             val time = i.toDouble() / SAMPLE_RATE
             
-            // Sum all frequencies
             var sample = 0.0
             for (frequency in frequencies) {
                 sample += sin(2.0 * Math.PI * frequency * time)
             }
-            
-            // Normalize by number of tones
             sample /= frequencies.size
             
-            // Apply fade envelope
             val envelope = when {
                 i < fadeInSamples -> i.toDouble() / fadeInSamples
                 i > fadeOutStart -> (numSamples - i).toDouble() / fadeInSamples
@@ -207,9 +228,6 @@ class MidiPlayer @Inject constructor(
         playAudioTrack(samples)
     }
     
-    /**
-     * Play samples through AudioTrack
-     */
     private fun playAudioTrack(samples: ShortArray) {
         val bufferSize = AudioTrack.getMinBufferSize(
             SAMPLE_RATE,
@@ -238,19 +256,13 @@ class MidiPlayer @Inject constructor(
         try {
             audioTrack.write(samples, 0, samples.size)
             audioTrack.play()
-            
-            // Wait for playback to complete
             Thread.sleep((samples.size * 1000L / SAMPLE_RATE) + 50)
-            
         } finally {
             audioTrack.stop()
             audioTrack.release()
         }
     }
     
-    /**
-     * Release resources
-     */
     fun release() {
         stop()
         scope.cancel()
@@ -262,9 +274,13 @@ class MidiPlayer @Inject constructor(
  */
 data class MidiPlayerState(
     val isPlaying: Boolean = false,
-    val currentPitch: Pitch? = null
+    val currentMidiNote: Int? = null
 ) {
-    val displayNote: String get() = currentPitch?.let {
-        PitchUtils.pitchToDisplayString(it)
+    private val noteNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+    
+    val displayNote: String get() = currentMidiNote?.let { midi ->
+        val noteName = noteNames[midi % 12]
+        val octave = midi / 12 - 1
+        "$noteName$octave"
     } ?: "—"
 }

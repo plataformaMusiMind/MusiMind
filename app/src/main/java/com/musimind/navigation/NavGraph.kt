@@ -71,6 +71,11 @@ fun MusiMindNavGraph(
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
+                },
+                onNavigateToOnboarding = {
+                    navController.navigate(Screen.UserType.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
                 }
             )
         }

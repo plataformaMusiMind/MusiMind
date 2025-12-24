@@ -138,4 +138,31 @@ object LevelSystem {
             1f
         }
     }
+    
+    /**
+     * Get level title and description
+     */
+    fun getLevelInfo(level: Int): Pair<String, String> {
+        val titles = listOf(
+            "Iniciante" to "Primeiros passos",
+            "Aprendiz" to "Dominando o básico", 
+            "Estudante" to "Progredindo bem",
+            "Praticante" to "Prática constante",
+            "Dedicado" to "Compromisso musical",
+            "Habilidoso" to "Técnica refinada",
+            "Talentoso" to "Talento natural",
+            "Virtuoso" to "Execução excepcional",
+            "Mestre" to "Domínio completo",
+            "Maestro" to "Lenda musical"
+        )
+        val index = ((level - 1) / 2).coerceIn(0, titles.lastIndex)
+        return titles[index]
+    }
+    
+    /**
+     * Get progress to next level (0.0 to 1.0)
+     */
+    fun getProgressToNextLevel(xp: Int): Float {
+        return getXpProgress(xp)
+    }
 }

@@ -1,15 +1,23 @@
 package com.musimind.presentation.exercise
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.musimind.music.audio.midi.MidiPlayer
-import com.musimind.music.audio.pitch.*
+import com.musimind.music.audio.pitch.PitchDetector
+import com.musimind.music.audio.pitch.PitchResult
+import com.musimind.music.audio.pitch.PitchUtils
 import com.musimind.music.notation.model.*
-import com.musimind.music.notation.parser.ScoreParser
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import javax.inject.Inject
+import kotlin.math.abs
 
 /**
  * ViewModel for solfege exercise
@@ -17,7 +25,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SolfegeViewModel @Inject constructor(
     private val pitchDetector: PitchDetector,
-    private val midiPlayer: MidiPlayer
+    private val midiPlayer: MidiPlayer,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(SolfegeState())
@@ -25,17 +34,26 @@ class SolfegeViewModel @Inject constructor(
     
     private var pitchListeningJob: kotlinx.coroutines.Job? = null
     private var consecutiveMatches = 0
-    private val requiredMatches = 5 // Number of consecutive good matches to count as correct
+    private val requiredMatches = 5
     
     /**
-     * Load exercise from ID (could be from Firebase or local JSON)
+     * Check microphone permission
+     */
+    fun hasPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+    
+    /**
+     * Load exercise
      */
     fun loadExercise(exerciseId: String) {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true) }
             
             try {
-                // For demo, create a simple exercise
                 val notes = createDemoExercise()
                 
                 _state.update {
@@ -46,7 +64,7 @@ class SolfegeViewModel @Inject constructor(
                         totalNotes = notes.size,
                         currentNoteIndex = 0,
                         currentNote = notes.firstOrNull(),
-                        hasPermission = pitchDetector.hasPermission()
+                        hasPermission = hasPermission()
                     )
                 }
             } catch (e: Exception) {
@@ -60,11 +78,7 @@ class SolfegeViewModel @Inject constructor(
         }
     }
     
-    /**
-     * Create a demo exercise with simple notes
-     */
     private fun createDemoExercise(): List<Note> {
-        // C major scale exercise
         val pitches = listOf(
             Pitch(NoteName.C, 4),
             Pitch(NoteName.D, 4),
@@ -89,83 +103,88 @@ class SolfegeViewModel @Inject constructor(
      * Start listening for pitch
      */
     fun startListening() {
-        if (!pitchDetector.hasPermission()) {
+        if (!hasPermission()) {
             _state.update { it.copy(error = "Permissão de microfone necessária") }
             return
         }
         
-        val targetPitch = _state.value.currentNote?.pitch ?: return
-        
+        val targetNote = _state.value.currentNote ?: return
         consecutiveMatches = 0
         
         _state.update { 
             it.copy(
                 isListening = true,
-                currentNoteState = NoteState.HIGHLIGHTED,
-                pitchDetectionState = it.pitchDetectionState.copy(
-                    isListening = true,
-                    targetPitch = targetPitch
-                )
+                currentNoteState = NoteState.HIGHLIGHTED
             )
         }
         
         pitchListeningJob = viewModelScope.launch {
             pitchDetector.startListening().collect { result ->
-                handlePitchResult(result, targetPitch)
+                handlePitchResult(result, targetNote)
             }
         }
     }
     
-    /**
-     * Stop listening
-     */
     fun stopListening() {
         pitchListeningJob?.cancel()
         pitchListeningJob = null
         pitchDetector.stopListening()
         
         _state.update {
-            it.copy(
-                isListening = false,
-                pitchDetectionState = it.pitchDetectionState.copy(isListening = false)
-            )
+            it.copy(isListening = false)
         }
     }
     
-    /**
-     * Handle pitch detection result
-     */
-    private fun handlePitchResult(result: PitchResult, targetPitch: Pitch) {
-        val matchQuality = result.matchQuality(targetPitch)
-        val isMatching = result.matchesPitch(targetPitch)
-        
-        _state.update {
-            it.copy(
-                pitchDetectionState = it.pitchDetectionState.copy(
-                    currentPitch = result,
-                    targetPitch = targetPitch,
-                    matchQuality = matchQuality,
-                    isMatching = isMatching,
-                    consecutiveMatches = if (isMatching) consecutiveMatches else 0
+    private fun handlePitchResult(result: PitchResult, targetNote: Note) {
+        when (result) {
+            is PitchResult.Detected -> {
+                val targetFreq = pitchToFrequency(targetNote.pitch)
+                val isMatching = result.matchesPitch(
+                    PitchUtils.frequencyToNoteName(targetFreq), 
+                    tolerance = 30
                 )
-            )
-        }
-        
-        if (isMatching) {
-            consecutiveMatches++
-            
-            if (consecutiveMatches >= requiredMatches) {
-                // Success!
-                handleCorrectAnswer()
+                
+                _state.update {
+                    it.copy(
+                        currentPitchResult = result,
+                        isMatching = isMatching
+                    )
+                }
+                
+                if (isMatching) {
+                    consecutiveMatches++
+                    if (consecutiveMatches >= requiredMatches) {
+                        handleCorrectAnswer()
+                    }
+                } else {
+                    consecutiveMatches = 0
+                }
             }
-        } else {
-            consecutiveMatches = 0
+            is PitchResult.NoSound -> {
+                _state.update { 
+                    it.copy(
+                        currentPitchResult = result,
+                        isMatching = false
+                    )
+                }
+                consecutiveMatches = 0
+            }
+            is PitchResult.Error -> {
+                _state.update { it.copy(error = result.message) }
+            }
         }
     }
     
-    /**
-     * Handle correct answer
-     */
+    private fun pitchToFrequency(pitch: Pitch): Float {
+        val noteValues = mapOf(
+            NoteName.C to 0, NoteName.D to 2, NoteName.E to 4, NoteName.F to 5,
+            NoteName.G to 7, NoteName.A to 9, NoteName.B to 11
+        )
+        val baseNote = noteValues[pitch.note] ?: 0
+        val midiNote = (pitch.octave + 1) * 12 + baseNote + pitch.alteration
+        return PitchUtils.midiToFrequency(midiNote)
+    }
+    
     private fun handleCorrectAnswer() {
         stopListening()
         
@@ -178,27 +197,21 @@ class SolfegeViewModel @Inject constructor(
             )
         }
         
-        // Auto advance after delay
         viewModelScope.launch {
-            kotlinx.coroutines.delay(1500)
+            delay(1500)
             nextNote()
         }
     }
     
-    /**
-     * Move to next note
-     */
     fun nextNote() {
         val currentState = _state.value
         val nextIndex = currentState.currentNoteIndex + 1
         
-        // Clear feedback
         _state.update { 
             it.copy(feedbackMessage = null, lastResult = null)
         }
         
         if (nextIndex >= currentState.notes.size) {
-            // Exercise complete
             _state.update { it.copy(isComplete = true) }
         } else {
             _state.update {
@@ -211,14 +224,10 @@ class SolfegeViewModel @Inject constructor(
         }
     }
     
-    /**
-     * Skip current note (costs a life)
-     */
     fun skipNote() {
         val currentState = _state.value
         
         if (currentState.lives <= 1) {
-            // Game over
             _state.update { it.copy(isComplete = true, lives = 0) }
             return
         }
@@ -233,22 +242,16 @@ class SolfegeViewModel @Inject constructor(
         }
         
         viewModelScope.launch {
-            kotlinx.coroutines.delay(1000)
+            delay(1000)
             nextNote()
         }
     }
     
-    /**
-     * Play current note
-     */
     fun playCurrentNote() {
         val pitch = _state.value.currentNote?.pitch ?: return
         midiPlayer.playPitch(pitch, durationMs = 800)
     }
     
-    /**
-     * Toggle note playback setting
-     */
     fun togglePlayback() {
         _state.update { it.copy(playbackEnabled = !it.playbackEnabled) }
     }
@@ -279,7 +282,8 @@ data class SolfegeState(
     val isListening: Boolean = false,
     val playbackEnabled: Boolean = true,
     
-    val pitchDetectionState: PitchDetectionState = PitchDetectionState(),
+    val currentPitchResult: PitchResult? = null,
+    val isMatching: Boolean = false,
     
     val correctCount: Int = 0,
     val lives: Int = 3,

@@ -1,15 +1,27 @@
 package com.musimind.presentation.auth
 
+import android.content.Context
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.GetCredentialResponse
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
-import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.auth.GoogleAuthProvider
+import com.musimind.data.repository.UserRepository
 import com.musimind.domain.model.AuthProvider
 import com.musimind.domain.model.Plan
 import com.musimind.domain.model.User
 import com.musimind.domain.model.UserType
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,15 +43,24 @@ data class AuthUiState(
 
 /**
  * ViewModel for Login and Register screens
+ * Supports Email/Password and Google Sign-In
  */
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val firebaseAuth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val userRepository: UserRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    companion object {
+        // Firebase Web Client ID from Firebase Console > Authentication > Sign-in method > Google
+        private const val WEB_CLIENT_ID = "719869906914-bo1uqofmeoej5ntaatea3gajoqbke8hd.apps.googleusercontent.com"
+    }
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
+    
+    private val credentialManager = CredentialManager.create(context)
 
     /**
      * Login with email and password
@@ -63,26 +84,14 @@ class AuthViewModel @Inject constructor(
                 val userId = result.user?.uid
                 
                 if (userId != null) {
-                    // Check if user exists in Firestore
-                    val userDoc = firestore.collection("users").document(userId).get().await()
+                    val userExists = userRepository.userExists(userId)
                     
-                    if (userDoc.exists()) {
-                        _uiState.update { 
-                            it.copy(
-                                isLoading = false, 
-                                isLoginSuccess = true,
-                                isNewUser = false
-                            )
-                        }
-                    } else {
-                        // User exists in Auth but not in Firestore - needs onboarding
-                        _uiState.update { 
-                            it.copy(
-                                isLoading = false, 
-                                isLoginSuccess = true,
-                                isNewUser = true
-                            )
-                        }
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false, 
+                            isLoginSuccess = true,
+                            isNewUser = !userExists
+                        )
                     }
                 }
             } catch (e: FirebaseAuthException) {
@@ -106,13 +115,125 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Login with Google
-     * Note: This requires Activity result handling in the screen
+     * Initiate Google Sign-In using Credential Manager
+     * @param activityContext The Activity Context required to show the sign-in UI
      */
-    fun loginWithGoogle() {
-        // TODO: Implement Google Sign-In
-        // This will be triggered via Activity Result API
-        _uiState.update { it.copy(errorMessage = "Login com Google será implementado em breve") }
+    fun signInWithGoogle(activityContext: Context) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            
+            try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(WEB_CLIENT_ID)
+                    .setAutoSelectEnabled(false)
+                    .build()
+                
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+                
+                val result = credentialManager.getCredential(
+                    request = request,
+                    context = activityContext
+                )
+                
+                handleGoogleSignInResult(result)
+                
+            } catch (e: GetCredentialCancellationException) {
+                _uiState.update { 
+                    it.copy(isLoading = false, errorMessage = null) 
+                }
+            } catch (e: GetCredentialException) {
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false, 
+                        errorMessage = "Erro ao fazer login com Google: ${e.message}"
+                    ) 
+                }
+            } catch (e: Exception) {
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false, 
+                        errorMessage = "Erro inesperado: ${e.message}"
+                    ) 
+                }
+            }
+        }
+    }
+    
+    /**
+     * Handle the Google Sign-In result
+     */
+    private suspend fun handleGoogleSignInResult(result: GetCredentialResponse) {
+        val credential = result.credential
+        
+        if (credential is CustomCredential && 
+            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
+            try {
+                val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+                val idToken = googleIdTokenCredential.idToken
+                
+                // Sign in to Firebase with the Google ID token
+                val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
+                val authResult = firebaseAuth.signInWithCredential(firebaseCredential).await()
+                
+                val firebaseUser = authResult.user
+                if (firebaseUser != null) {
+                    // Check if user exists in Firestore
+                    val existingUser = userRepository.getUserById(firebaseUser.uid)
+                    
+                    if (existingUser == null) {
+                        // Create new user in Firestore
+                        val newUser = User(
+                            id = firebaseUser.uid,
+                            email = firebaseUser.email ?: "",
+                            fullName = firebaseUser.displayName ?: "",
+                            avatarUrl = firebaseUser.photoUrl?.toString(),
+                            authProvider = AuthProvider.GOOGLE
+                        )
+                        userRepository.createOrUpdateUser(newUser)
+                        
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                isLoginSuccess = true,
+                                isNewUser = true,
+                                currentUser = newUser
+                            )
+                        }
+                    } else {
+                        // Update last active time
+                        userRepository.updateUserFields(firebaseUser.uid, mapOf(
+                            "lastActiveAt" to System.currentTimeMillis()
+                        ))
+                        
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                isLoginSuccess = true,
+                                isNewUser = false,
+                                currentUser = existingUser
+                            )
+                        }
+                    }
+                }
+            } catch (e: GoogleIdTokenParsingException) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        errorMessage = "Erro ao processar credenciais do Google"
+                    )
+                }
+            }
+        } else {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    errorMessage = "Tipo de credencial inválido"
+                )
+            }
+        }
     }
 
     /**
@@ -154,7 +275,6 @@ class AuthViewModel @Inject constructor(
                 val userId = result.user?.uid
                 
                 if (userId != null) {
-                    // Create user in Firestore with basic info
                     val newUser = User(
                         id = userId,
                         email = email,
@@ -163,10 +283,7 @@ class AuthViewModel @Inject constructor(
                         authProvider = AuthProvider.EMAIL
                     )
                     
-                    firestore.collection("users")
-                        .document(userId)
-                        .set(newUser)
-                        .await()
+                    userRepository.createOrUpdateUser(newUser)
                     
                     _uiState.update { 
                         it.copy(
@@ -204,11 +321,7 @@ class AuthViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                firestore.collection("users")
-                    .document(userId)
-                    .update("userType", userType.name)
-                    .await()
-                    
+                userRepository.updateUserFields(userId, mapOf("userType" to userType.name))
                 _uiState.update { 
                     it.copy(currentUser = it.currentUser?.copy(userType = userType))
                 }
@@ -228,11 +341,7 @@ class AuthViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                firestore.collection("users")
-                    .document(userId)
-                    .update("plan", plan.name)
-                    .await()
-                    
+                userRepository.updateUserFields(userId, mapOf("plan" to plan.name))
                 _uiState.update { 
                     it.copy(currentUser = it.currentUser?.copy(plan = plan))
                 }
@@ -252,11 +361,7 @@ class AuthViewModel @Inject constructor(
         
         viewModelScope.launch {
             try {
-                firestore.collection("users")
-                    .document(userId)
-                    .update("avatarUrl", avatarUrl)
-                    .await()
-                    
+                userRepository.updateUserFields(userId, mapOf("avatarUrl" to avatarUrl))
                 _uiState.update { 
                     it.copy(currentUser = it.currentUser?.copy(avatarUrl = avatarUrl))
                 }
@@ -266,6 +371,14 @@ class AuthViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    /**
+     * Sign out
+     */
+    fun signOut() {
+        firebaseAuth.signOut()
+        _uiState.value = AuthUiState()
     }
 
     /**

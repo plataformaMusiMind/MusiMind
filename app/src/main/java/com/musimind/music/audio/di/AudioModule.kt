@@ -36,9 +36,7 @@ object AudioModule {
     
     @Provides
     @Singleton
-    fun provideMidiPlayer(
-        @ApplicationContext context: Context
-    ): MidiPlayer {
-        return MidiPlayer(context)
+    fun provideMidiPlayer(): MidiPlayer {
+        return MidiPlayer()
     }
 }

@@ -18,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,12 +39,32 @@ import kotlinx.coroutines.delay
 fun SplashScreen(
     onNavigateToLogin: () -> Unit,
     onNavigateToHome: () -> Unit,
+    onNavigateToOnboarding: () -> Unit = onNavigateToLogin, // Fallback to login if not provided
     viewModel: SplashViewModel = hiltViewModel()
 ) {
     val scale = remember { Animatable(0f) }
+    val destination by viewModel.destination.collectAsState()
 
+    // Handle navigation based on destination
+    LaunchedEffect(destination) {
+        when (destination) {
+            is SplashDestination.Loading -> {
+                // Still loading, show animation
+            }
+            is SplashDestination.Login -> {
+                onNavigateToLogin()
+            }
+            is SplashDestination.Onboarding -> {
+                onNavigateToOnboarding()
+            }
+            is SplashDestination.Home -> {
+                onNavigateToHome()
+            }
+        }
+    }
+
+    // Animate logo on launch
     LaunchedEffect(key1 = true) {
-        // Animate the logo
         scale.animateTo(
             targetValue = 1f,
             animationSpec = tween(
@@ -50,20 +72,6 @@ fun SplashScreen(
                 easing = FastOutSlowInEasing
             )
         )
-        
-        // Wait a bit
-        delay(1000)
-        
-        // Check if user is logged in
-        if (viewModel.isUserLoggedIn()) {
-            if (viewModel.isOnboardingComplete()) {
-                onNavigateToHome()
-            } else {
-                onNavigateToLogin()
-            }
-        } else {
-            onNavigateToLogin()
-        }
     }
 
     Box(

@@ -49,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -409,8 +410,9 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(24.dp))
             
             // Google Sign Up Button
+            val context = LocalContext.current
             OutlinedButton(
-                onClick = { viewModel.loginWithGoogle() },
+                onClick = { viewModel.signInWithGoogle(context) },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),

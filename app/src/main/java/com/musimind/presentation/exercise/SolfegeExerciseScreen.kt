@@ -152,9 +152,11 @@ private fun SolfegeExerciseContent(
             enter = fadeIn() + slideInVertically(),
             exit = fadeOut() + slideOutVertically()
         ) {
-            CircularPitchIndicator(
-                state = state.pitchDetectionState,
-                size = 180.dp
+            CompactPitchDisplay(
+                pitchResult = state.currentPitchResult,
+                targetNote = state.currentNote?.pitch?.let {
+                    com.musimind.music.audio.pitch.PitchUtils.pitchToDisplayString(it)
+                }
             )
         }
         
@@ -384,10 +386,19 @@ private fun ControlButtons(
         }
         
         // Microphone button
-        MicrophoneButton(
-            isListening = isListening,
-            onClick = if (isListening) onStopListening else onStartListening
-        )
+        FloatingActionButton(
+            onClick = if (isListening) onStopListening else onStartListening,
+            containerColor = if (isListening) 
+                MaterialTheme.colorScheme.error 
+            else 
+                MaterialTheme.colorScheme.primary
+        ) {
+            Icon(
+                imageVector = if (isListening) Icons.Default.Stop else Icons.Default.Mic,
+                contentDescription = if (isListening) "Parar" else "Ouvir",
+                tint = Color.White
+            )
+        }
     }
 }
 

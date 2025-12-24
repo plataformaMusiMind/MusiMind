@@ -69,9 +69,9 @@ fun AchievementCard(
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isLocked) Color.Gray.copy(alpha = 0.3f)
-                        else Brush.linearGradient(listOf(tierColor, tierColor.copy(alpha = 0.6f)))
+                    .then(
+                        if (isLocked) Modifier.background(Color.Gray.copy(alpha = 0.3f))
+                        else Modifier.background(Brush.linearGradient(listOf(tierColor, tierColor.copy(alpha = 0.6f))))
                     )
                     .border(2.dp, tierColor.copy(alpha = if (isLocked) 0.3f else 1f), CircleShape),
                 contentAlignment = Alignment.Center

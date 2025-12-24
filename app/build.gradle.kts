@@ -70,6 +70,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.core.splashscreen)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))
@@ -97,6 +98,9 @@ dependencies {
 
     // Google Auth
     implementation(libs.play.services.auth)
+    implementation(libs.androidx.credentials)
+    implementation(libs.androidx.credentials.play.services)
+    implementation(libs.googleid)
 
     // Room Database
     implementation(libs.room.runtime)

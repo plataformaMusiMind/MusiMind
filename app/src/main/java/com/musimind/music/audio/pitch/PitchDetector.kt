@@ -130,7 +130,7 @@ class PitchDetector @Inject constructor(
         audioRecord = null
     }
     
-    private fun hasPermission(): Boolean {
+    fun hasPermission(): Boolean {
         return ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.RECORD_AUDIO
@@ -284,5 +284,44 @@ object PitchUtils {
         
         val midiNote = (octave + 1) * 12 + noteIndex
         return midiToFrequency(midiNote)
+    }
+    
+    /**
+     * Convert Pitch model to solfege (Do, Re, Mi, etc.)
+     */
+    fun pitchToSolfege(pitch: com.musimind.music.notation.model.Pitch): String {
+        val solfegeNames = mapOf(
+            com.musimind.music.notation.model.NoteName.C to "Dó",
+            com.musimind.music.notation.model.NoteName.D to "Ré",
+            com.musimind.music.notation.model.NoteName.E to "Mi",
+            com.musimind.music.notation.model.NoteName.F to "Fá",
+            com.musimind.music.notation.model.NoteName.G to "Sol",
+            com.musimind.music.notation.model.NoteName.A to "Lá",
+            com.musimind.music.notation.model.NoteName.B to "Si"
+        )
+        val solfege = solfegeNames[pitch.note] ?: pitch.note.name
+        val alter = when (pitch.alteration) {
+            1 -> "♯"
+            -1 -> "♭"
+            2 -> "𝄪"
+            -2 -> "𝄫"
+            else -> ""
+        }
+        return "$solfege$alter"
+    }
+    
+    /**
+     * Convert Pitch model to display string (e.g., "C4", "D#5")
+     */
+    fun pitchToDisplayString(pitch: com.musimind.music.notation.model.Pitch): String {
+        val noteName = pitch.note.name
+        val alter = when (pitch.alteration) {
+            1 -> "#"
+            -1 -> "b"
+            2 -> "##"
+            -2 -> "bb"
+            else -> ""
+        }
+        return "$noteName$alter${pitch.octave}"
     }
 }

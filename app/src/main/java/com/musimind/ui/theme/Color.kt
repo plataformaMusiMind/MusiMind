@@ -74,6 +74,10 @@ val StreakOrange = Color(0xFFF97316)
 val LevelBlue = Color(0xFF3B82F6)
 val CoinYellow = Color(0xFFEAB308)
 val HeartRed = Color(0xFFEF4444)
+val GamificationGreen = Color(0xFF22C55E)
+val GamificationYellow = Color(0xFFFBBF24)
+val GamificationOrange = Color(0xFFF97316)
+val WarningRed = Color(0xFFEF4444)
 
 // Music Notation Colors
 val NoteCorrect = Color(0xFF22C55E)
