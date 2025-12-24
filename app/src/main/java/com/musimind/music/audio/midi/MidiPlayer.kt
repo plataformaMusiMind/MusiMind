@@ -1,9 +1,12 @@
 package com.musimind.music.audio.midi
 
+import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import com.musimind.music.audio.soundfont.SoundFontPlayer
 import com.musimind.music.notation.model.Pitch
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -14,10 +17,14 @@ import kotlin.math.pow
 import kotlin.math.sin
 
 /**
- * Simple MIDI-like synthesizer for playing notes
+ * MIDI-like synthesizer for playing notes.
+ * Uses SoundFont for realistic piano sounds when available,
+ * falls back to synthesized tones otherwise.
  */
 @Singleton
-class MidiPlayer @Inject constructor() {
+class MidiPlayer @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
     companion object {
         private const val SAMPLE_RATE = 44100
         private const val DEFAULT_DURATION_MS = 500
@@ -25,11 +32,22 @@ class MidiPlayer @Inject constructor() {
         private const val A4_FREQUENCY = 440.0f
     }
     
+    // SoundFont player for realistic piano sounds
+    private val soundFontPlayer = SoundFontPlayer(context)
+    private var useSoundFont = false
+    
     private val _state = MutableStateFlow(MidiPlayerState())
     val state: StateFlow<MidiPlayerState> = _state.asStateFlow()
     
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var currentPlayJob: Job? = null
+    
+    init {
+        // Initialize SoundFont in background
+        scope.launch {
+            useSoundFont = soundFontPlayer.initialize()
+        }
+    }
     
     /**
      * Play a single pitch by MIDI note number
@@ -47,8 +65,13 @@ class MidiPlayer @Inject constructor() {
                     currentMidiNote = midiNote
                 )
                 
-                val frequency = midiToFrequency(midiNote)
-                playTone(frequency, durationMs, velocity)
+                // Use SoundFont if available, otherwise fall back to synth
+                if (useSoundFont && soundFontPlayer.isReady()) {
+                    soundFontPlayer.playNote(midiNote, durationMs, velocity)
+                } else {
+                    val frequency = midiToFrequency(midiNote)
+                    playTone(frequency, durationMs, velocity)
+                }
                 
             } finally {
                 _state.value = _state.value.copy(
@@ -301,6 +324,7 @@ class MidiPlayer @Inject constructor() {
     
     fun release() {
         stop()
+        soundFontPlayer.release()
         scope.cancel()
     }
 }

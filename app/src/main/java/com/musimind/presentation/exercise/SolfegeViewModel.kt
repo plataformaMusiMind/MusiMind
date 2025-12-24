@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.musimind.data.repository.ExerciseRepository
 import com.musimind.domain.model.SolfegeNote
+import com.musimind.music.audio.core.*
+import com.musimind.music.audio.engine.SolfegeAudioEngine
 import com.musimind.music.audio.midi.MidiPlayer
 import com.musimind.music.audio.pitch.PitchDetector
 import com.musimind.music.audio.pitch.PitchResult
@@ -18,7 +20,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.currentCoroutineContext
 import javax.inject.Inject
 import kotlin.math.abs
 
@@ -38,9 +39,51 @@ class SolfegeViewModel @Inject constructor(
     private val _state = MutableStateFlow(SolfegeState())
     val state: StateFlow<SolfegeState> = _state.asStateFlow()
     
+    // New: Audio Engine for sample-accurate playback and analysis
+    private val audioEngine = SolfegeAudioEngine(context, midiPlayer)
+    
+    // Expose feedback state from audio engine
+    val audioFeedbackState: StateFlow<SolfegeFeedbackState> = audioEngine.feedbackState
+    
     private var pitchListeningJob: kotlinx.coroutines.Job? = null
     private var consecutiveMatches = 0
     private val requiredMatches = 5
+    
+    init {
+        // Observe audio engine feedback and update state
+        viewModelScope.launch {
+            audioEngine.feedbackState.collect { feedback ->
+                updateStateFromFeedback(feedback)
+            }
+        }
+    }
+    
+    private fun updateStateFromFeedback(feedback: SolfegeFeedbackState) {
+        _state.update { state ->
+            state.copy(
+                currentBeat = feedback.currentBeatInMeasure,
+                currentNoteIndex = if (feedback.currentNoteIndex >= 0) feedback.currentNoteIndex else state.currentNoteIndex,
+                isPlaying = feedback.phase == SolfegePhase.PLAYING || feedback.phase == SolfegePhase.COUNTDOWN,
+                statusText = when (feedback.phase) {
+                    SolfegePhase.IDLE -> "pronto"
+                    SolfegePhase.COUNTDOWN -> "contando... ${feedback.countdownNumber}"
+                    SolfegePhase.PLAYING -> "tocando..."
+                    SolfegePhase.LISTENING -> "ouvindo..."
+                    SolfegePhase.COMPLETED -> "concluído!"
+                },
+                isListening = feedback.phase == SolfegePhase.LISTENING,
+                currentPitchResult = if (feedback.isVoiceDetected) {
+                    PitchResult.Detected(
+                        frequency = feedback.currentPitchHz,
+                        note = PitchUtils.frequencyToNoteName(feedback.currentPitchHz),
+                        cents = feedback.currentCentDeviation.toInt(),
+                        confidence = 0.9f
+                    )
+                } else null,
+                isMatching = feedback.isCurrentPitchCorrect
+            )
+        }
+    }
     
     /**
      * Check microphone permission
@@ -165,104 +208,64 @@ class SolfegeViewModel @Inject constructor(
     }
     
     /**
-     * Play entire melody with metronome countdown
-     */
-    /**
-     * Play entire melody with metronome countdown and continuous click
-     */
-    /**
-     * Play entire melody with metronome countdown and continuous click
-     * Uses a single loop to ensure synchronization
+     * Play entire melody with sample-accurate audio engine.
+     * Uses the new SolfegeAudioEngine for precise synchronization.
      */
     fun playMelody() {
         val currentState = _state.value
         if (currentState.isPlaying) return
-
-        viewModelScope.launch {
-            _state.update { it.copy(isPlaying = true, statusText = "contando...", currentBeat = 0) }
-            
-            val notes = currentState.notes
-            val tempo = currentState.tempo
-            val msPerBeat = (60000 / tempo).toLong()
-            
-            // 1. Count-in (1 bar of 4 beats)
-            for (beat in 1..4) {
-                _state.update { it.copy(currentBeat = beat) }
-                midiPlayer.playMetronomeClick(isAccented = beat == 1)
-                delay(msPerBeat)
-            }
-            
-            _state.update { it.copy(statusText = "tocando...") }
-            
-            // 2. Play Melody + Metronome in a unified loop
-            // assuming 4/4 signature for now
-            // We calculate the total beats needed
-            val totalNotesDuration = notes.sumOf { it.durationBeats.toDouble() }.toFloat()
-            val totalBeats = kotlin.math.ceil(totalNotesDuration).toInt()
-            // Round up to nearest measure (multiple of 4)
-            val totalExploreBeats = ((totalBeats + 3) / 4) * 4
-            
-            // Map notes to their start times (in beats)
-            var currentNoteStartTime = 0f
-            val noteEvents = notes.associate { note ->
-                val start = currentNoteStartTime
-                currentNoteStartTime += note.durationBeats
-                start to note
-            }
-            
-            // Iterate beat by beat (and sub-beats if needed, but simplified for now)
-            // Real-time synchronization is complex with just delays, but single loop prevents drift between metro and notes
-            
-            var currentBeatTime = 0f
-            var beatIndex = 1 // 1-based index for visual metronome
-            
-            // We iterate by smallest necessary resolution.
-            // If we have eighth notes (0.5), we step by 0.5?
-            // For now, let's assume we step by BEATS and schedule notes that fall on them.
-            // If notes are off-beat, this simple loop needs sub-steps.
-            // Let's implement a loop that ticks every 'resolution' (e.g. 0.25 beats)
-            val resolution = 0.25f 
-            val msPerStep = (msPerBeat * resolution).toLong()
-            var stepCount = 0
-            
-            // We loop until all notes are played
-            while (currentBeatTime < totalNotesDuration + 1) { // +1 for decay
-                // Metronome click on integer beats
-                if (stepCount % (1/resolution).toInt() == 0) {
-                     val beatNum = (currentBeatTime.toInt() % 4) + 1
-                     val isAccented = beatNum == 1
-                     midiPlayer.playMetronomeClick(isAccented = isAccented)
-                     _state.update { it.copy(currentBeat = beatNum) }
-                }
-                
-                // Play Note if it starts at this exact time
-                // We use a small epsilon for float comparison
-                val noteToPlay = noteEvents.filterKeys { abs(it - currentBeatTime) < 0.01f }.values.firstOrNull()
-                
-                if (noteToPlay != null) {
-                    val noteIndex = notes.indexOf(noteToPlay)
-                    _state.update { it.copy(currentNoteIndex = noteIndex) }
-                    
-                    // Duration slightly less than full to articulate
-                    val durationMs = (msPerBeat * noteToPlay.durationBeats * 0.95).toInt()
-                    midiPlayer.playPitch(noteToPlay.pitch, durationMs = durationMs)
-                }
-                
-                delay(msPerStep)
-                currentBeatTime += resolution
-                stepCount++
-            }
-            
-            // Cleanup
-            _state.update { 
-                it.copy(
-                    isPlaying = false, 
-                    statusText = "pronto",
-                    currentNoteIndex = 0,
-                    currentBeat = 0
-                ) 
-            }
+        
+        // Convert Note list to ExpectedNote for audio engine
+        val expectedNotes = convertToExpectedNotes(currentState.notes)
+        
+        // Configure audio engine
+        audioEngine.configure(
+            notes = expectedNotes,
+            tempo = currentState.tempo.toDouble(),
+            timeSignatureNumerator = 4,
+            timeSignatureDenominator = 4
+        )
+        
+        // Start playback (engine handles countdown, metronome, and notes)
+        audioEngine.startPlayback()
+    }
+    
+    /**
+     * Convert internal Note model to ExpectedNote for audio engine.
+     */
+    private fun convertToExpectedNotes(notes: List<Note>): List<ExpectedNote> {
+        var currentBeat = 0.0
+        return notes.mapIndexed { index, note ->
+            val expectedNote = ExpectedNote(
+                id = note.id,
+                midiNote = pitchToMidi(note.pitch),
+                startBeat = currentBeat,
+                durationBeats = note.durationBeats.toDouble(),
+                solfegeName = note.solfegeName ?: ""
+            )
+            currentBeat += note.durationBeats
+            expectedNote
         }
+    }
+    
+    /**
+     * Convert Pitch to MIDI note number.
+     */
+    private fun pitchToMidi(pitch: Pitch): Int {
+        val noteValues = mapOf(
+            NoteName.C to 0, NoteName.D to 2, NoteName.E to 4, NoteName.F to 5,
+            NoteName.G to 7, NoteName.A to 9, NoteName.B to 11
+        )
+        val baseNote = noteValues[pitch.note] ?: 0
+        return (pitch.octave + 1) * 12 + baseNote + pitch.alteration
+    }
+    
+    /**
+     * Stop playback.
+     */
+    fun stopPlayback() {
+        audioEngine.stop()
+        _state.update { it.copy(isPlaying = false, statusText = "pronto", currentBeat = 0) }
     }
     
     /**
@@ -307,7 +310,7 @@ class SolfegeViewModel @Inject constructor(
     }
     
     /**
-     * Start listening for pitch
+     * Start listening for pitch using the new audio engine.
      */
     fun startListening() {
         if (!hasPermission()) {
@@ -318,30 +321,45 @@ class SolfegeViewModel @Inject constructor(
             return
         }
         
-        val targetNote = _state.value.currentNote ?: return
+        // Convert notes for audio engine
+        val expectedNotes = convertToExpectedNotes(_state.value.notes)
+        
+        // Configure audio engine for listening mode
+        audioEngine.configure(
+            notes = expectedNotes,
+            tempo = _state.value.tempo.toDouble()
+        )
+        
+        // Start listening (engine will handle pitch detection and feedback)
+        val success = audioEngine.startListening()
+        
+        if (!success) {
+            _state.update { it.copy(
+                error = "Não foi possível iniciar o microfone",
+                statusText = "Erro mic!"
+            ) }
+            return
+        }
+        
         consecutiveMatches = 0
         
         _state.update { 
             it.copy(
                 isListening = true,
-                currentNoteState = NoteState.HIGHLIGHTED
+                currentNoteState = NoteState.HIGHLIGHTED,
+                statusText = "ouvindo..."
             )
-        }
-        
-        pitchListeningJob = viewModelScope.launch {
-            pitchDetector.startListening().collect { result ->
-                handlePitchResult(result, targetNote)
-            }
         }
     }
     
     fun stopListening() {
+        audioEngine.stop()
         pitchListeningJob?.cancel()
         pitchListeningJob = null
         pitchDetector.stopListening()
         
         _state.update {
-            it.copy(isListening = false)
+            it.copy(isListening = false, statusText = "pronto")
         }
     }
     
@@ -471,6 +489,7 @@ class SolfegeViewModel @Inject constructor(
     
     override fun onCleared() {
         super.onCleared()
+        audioEngine.release()
         stopListening()
         midiPlayer.stop()
     }

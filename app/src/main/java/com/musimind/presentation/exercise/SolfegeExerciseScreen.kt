@@ -21,6 +21,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import com.musimind.music.audio.core.SolfegeFeedbackState
+import com.musimind.music.audio.core.SolfegePhase
 import com.musimind.music.notation.smufl.SMuFLGlyphs
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +52,7 @@ fun SolfegeExerciseScreen(
     viewModel: SolfegeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsState()
+    val audioFeedback by viewModel.audioFeedbackState.collectAsState()
     val context = LocalContext.current
     
     // Force landscape orientation for better score visualization
@@ -98,6 +101,7 @@ fun SolfegeExerciseScreen(
             else -> {
                 SolfegeExerciseContent(
                     state = state,
+                    audioFeedback = audioFeedback,
                     onBack = onBack,
                     onStartListening = { 
                         if (viewModel.hasPermission()) {
@@ -109,6 +113,7 @@ fun SolfegeExerciseScreen(
                     onStopListening = { viewModel.stopListening() },
                     onPlayNote = { viewModel.playCurrentNote() },
                     onPlayMelody = { viewModel.playMelody() },
+                    onStopPlayback = { viewModel.stopPlayback() },
                     onNext = { viewModel.nextNote() },
                     onPrevious = { viewModel.previousNote() },
                     onOctaveChange = { viewModel.changeOctave(it) },
@@ -123,11 +128,13 @@ fun SolfegeExerciseScreen(
 @Composable
 private fun SolfegeExerciseContent(
     state: SolfegeState,
+    audioFeedback: SolfegeFeedbackState,
     onBack: () -> Unit,
     onStartListening: () -> Unit,
     onStopListening: () -> Unit,
     onPlayNote: () -> Unit,
     onPlayMelody: () -> Unit,
+    onStopPlayback: () -> Unit,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
     onOctaveChange: (Int) -> Unit,
@@ -139,24 +146,6 @@ private fun SolfegeExerciseContent(
             .fillMaxSize()
             .padding(12.dp)
     ) {
-        // ... (Header skipped for brevity if not changing) ...
-        
-        // Use a continuous score view
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
-                .padding(8.dp)
-        ) {
-           // ... (Score view reuse) ...
-           // NOTE: I am not replacing the whole function content here if I can avoid it
-           // BUT replace_file_content works by replacing blocks.
-           // I will just target the SolfegeControlPanel call and signature.
-        }
-    }
-}
-
         // Header
         SolfegeHeader(
             exerciseTitle = state.exerciseTitle,
@@ -211,14 +200,17 @@ private fun SolfegeExerciseContent(
         // Bottom control panel
         SolfegeControlPanel(
             isListening = state.isListening,
+            isPlaying = state.isPlaying,
             currentOctave = state.currentOctave,
             tempo = state.tempo,
             currentBeat = state.currentBeat,
+            phase = audioFeedback.phase,
             showBeatNumbers = state.showBeatNumbers,
             showSolfegeNames = state.showSolfegeNames,
             statusText = state.statusText,
             onOctaveChange = onOctaveChange,
             onPlayMelody = onPlayMelody,
+            onStopPlayback = onStopPlayback,
             onStartSolfege = onStartListening,
             onStopSolfege = onStopListening,
             onToggleBeatNumbers = onToggleBeatNumbers,
@@ -553,19 +545,43 @@ private fun ContinuousScoreView(
 @Composable
 private fun SolfegeControlPanel(
     isListening: Boolean,
+    isPlaying: Boolean,
     currentOctave: Int,
     tempo: Int,
     currentBeat: Int, // Visual metronome beat (1-4)
+    phase: SolfegePhase,
     showBeatNumbers: Boolean,
     showSolfegeNames: Boolean,
     statusText: String,
     onOctaveChange: (Int) -> Unit,
     onPlayMelody: () -> Unit,
+    onStopPlayback: () -> Unit,
     onStartSolfege: () -> Unit,
     onStopSolfege: () -> Unit,
     onToggleBeatNumbers: () -> Unit,
     onToggleSolfegeNames: () -> Unit
 ) {
+    // Animated scale for metronome beat pulse
+    val beatScale by animateFloatAsState(
+        targetValue = if (currentBeat > 0 && phase != SolfegePhase.IDLE) 1.15f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "beatScale"
+    )
+    
+    // Beat color based on downbeat
+    val beatColor by animateColorAsState(
+        targetValue = when {
+            phase == SolfegePhase.COUNTDOWN -> Color(0xFFFBBF24) // Yellow for countdown
+            currentBeat == 1 -> Color(0xFF22C55E) // Green for downbeat
+            currentBeat > 0 -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
+        label = "beatColor"
+    )
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -620,11 +636,11 @@ private fun SolfegeControlPanel(
                 }
             }
             
-            // Listen button
+            // Listen/Stop button
             Button(
-                onClick = onPlayMelody,
+                onClick = if (isPlaying) onStopPlayback else onPlayMelody,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF3B82F6) // Blue
+                    containerColor = if (isPlaying) Color(0xFFEF4444) else Color(0xFF3B82F6) // Red or Blue
                 ),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -633,12 +649,12 @@ private fun SolfegeControlPanel(
                     .padding(end = 12.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.VolumeUp,
+                    imageVector = if (isPlaying) Icons.Default.Stop else Icons.Default.VolumeUp,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Ouvir", fontSize = 14.sp)
+                Text(if (isPlaying) "Parar" else "Ouvir", fontSize = 14.sp)
             }
             
             // Solfege button -> "Notas" as requested
@@ -683,19 +699,27 @@ private fun SolfegeControlPanel(
                     )
                 }
 
-                // Visual Metronome Square
+                // Visual Metronome Square - Animated
                 Box(
                     modifier = Modifier
                         .size(32.dp)
+                        .scale(beatScale)
                         .clip(RoundedCornerShape(4.dp))
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(beatColor),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = if (currentBeat > 0) currentBeat.toString() else "-",
+                        text = when {
+                            phase == SolfegePhase.COUNTDOWN && currentBeat > 0 -> currentBeat.toString()
+                            phase != SolfegePhase.IDLE && currentBeat > 0 -> currentBeat.toString()
+                            else -> "-"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = if (currentBeat == 1 || phase == SolfegePhase.COUNTDOWN) 
+                            Color.White 
+                        else 
+                            MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }

@@ -124,6 +124,9 @@ dependencies {
 
     // Audio Processing - Native Android implementation (no external dependency needed)
 
+    // SoundFont Playback (MikroSoundFont)
+    implementation("com.github.nickthecoder:mikrosoundfont:0.0.3")
+
     // Material Design
     implementation(libs.material)
 
