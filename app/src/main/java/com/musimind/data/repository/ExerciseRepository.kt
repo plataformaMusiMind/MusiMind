@@ -105,14 +105,29 @@ class ExerciseRepository @Inject constructor(
         }
     }
     
-    // ========== SOLFEGE NOTES ==========
-    
     /**
      * Get solfege notes for an exercise
      */
     suspend fun getSolfegeNotes(exerciseId: String): List<SolfegeNote> {
         return try {
             postgrest.from("solfege_notes")
+                .select {
+                    filter { eq("exercise_id", exerciseId) }
+                    order("sequence_order", Order.ASCENDING)
+                }
+                .decodeList<SolfegeNote>()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+    
+    /**
+     * Get melodic perception notes for an exercise
+     * Used by MelodicPerceptionViewModel
+     */
+    suspend fun getMelodicNotes(exerciseId: String): List<SolfegeNote> {
+        return try {
+            postgrest.from("melodic_notes")
                 .select {
                     filter { eq("exercise_id", exerciseId) }
                     order("sequence_order", Order.ASCENDING)

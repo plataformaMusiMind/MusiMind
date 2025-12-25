@@ -65,14 +65,7 @@ fun MelodicPerceptionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFF0F172A),
-                        Color(0xFF1E293B)
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
         when {
             state.isLoading -> {
@@ -101,6 +94,7 @@ fun MelodicPerceptionScreen(
                     onVerify = { viewModel.verify() },
                     onUndo = { viewModel.undoLastNote() },
                     onPlayMelody = { viewModel.playMelody() },
+                    onPlayUserNotes = { viewModel.playUserNotes() },
                     onHelp = { viewModel.showHelp() },
                     onNavigatePrevious = { viewModel.previousNote() },
                     onNavigateNext = { viewModel.nextNote() }
@@ -123,6 +117,7 @@ private fun MelodicPerceptionContent(
     onVerify: () -> Unit,
     onUndo: () -> Unit,
     onPlayMelody: () -> Unit,
+    onPlayUserNotes: () -> Unit,
     onHelp: () -> Unit,
     onNavigatePrevious: () -> Unit,
     onNavigateNext: () -> Unit
@@ -138,7 +133,8 @@ private fun MelodicPerceptionContent(
             onBack = onBack,
             onHelp = onHelp,
             onUndo = onUndo,
-            onPlayMelody = onPlayMelody
+            onPlayMelody = onPlayMelody,
+            onPlayUserNotes = onPlayUserNotes
         )
         
         Spacer(modifier = Modifier.height(12.dp))
@@ -225,7 +221,8 @@ private fun MelodicPerceptionHeader(
     onBack: () -> Unit,
     onHelp: () -> Unit,
     onUndo: () -> Unit,
-    onPlayMelody: () -> Unit
+    onPlayMelody: () -> Unit,
+    onPlayUserNotes: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -236,14 +233,14 @@ private fun MelodicPerceptionHeader(
             Icon(
                 imageVector = Icons.Default.ArrowBack,
                 contentDescription = "Voltar",
-                tint = Color.White
+                tint = MaterialTheme.colorScheme.onBackground
             )
         }
         
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onBackground,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
@@ -253,21 +250,30 @@ private fun MelodicPerceptionHeader(
                 Icon(
                     imageVector = Icons.Default.Help,
                     contentDescription = "Ajuda",
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onBackground
                 )
             }
             IconButton(onClick = onUndo) {
                 Icon(
                     imageVector = Icons.Default.Undo,
                     contentDescription = "Desfazer",
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onBackground
                 )
             }
+            // Play exercise button
             IconButton(onClick = onPlayMelody) {
                 Icon(
                     imageVector = Icons.Default.PlayArrow,
-                    contentDescription = "Tocar melodia",
-                    tint = Color.White
+                    contentDescription = "Ouvir exercício",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            // Play user's notes button
+            IconButton(onClick = onPlayUserNotes) {
+                Icon(
+                    imageVector = Icons.Default.Hearing,
+                    contentDescription = "Ouvir resposta",
+                    tint = MaterialTheme.colorScheme.secondary
                 )
             }
         }

@@ -4,7 +4,8 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
-import com.musimind.music.audio.soundfont.SoundFontPlayer
+import android.util.Log
+import com.musimind.music.audio.nativeaudio.NativeAudioBridge
 import com.musimind.music.notation.model.Pitch
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
@@ -18,67 +19,72 @@ import kotlin.math.sin
 
 /**
  * MIDI-like synthesizer for playing notes.
- * Uses SoundFont for realistic piano sounds when available,
- * falls back to synthesized tones otherwise.
+ * Uses native Oboe + TinySoundFont for low-latency, high-quality audio.
+ * Falls back to synthesized tones if native engine is not available.
  */
 @Singleton
 class MidiPlayer @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val nativeAudio: NativeAudioBridge
 ) {
     companion object {
+        private const val TAG = "MidiPlayer"
         private const val SAMPLE_RATE = 44100
         private const val DEFAULT_DURATION_MS = 500
         private const val FADE_DURATION_MS = 20
         private const val A4_FREQUENCY = 440.0f
     }
     
-    // SoundFont player for realistic piano sounds
-    private val soundFontPlayer = SoundFontPlayer(context)
-    private var useSoundFont = false
-    
     private val _state = MutableStateFlow(MidiPlayerState())
     val state: StateFlow<MidiPlayerState> = _state.asStateFlow()
     
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private var currentPlayJob: Job? = null
+    private var isNativeReady = false
     
     init {
-        // Initialize SoundFont in background
+        // Initialize native audio in background
         scope.launch {
-            useSoundFont = soundFontPlayer.initialize()
+            isNativeReady = nativeAudio.initialize()
+            Log.d(TAG, "Native audio initialized: $isNativeReady")
         }
     }
     
     /**
-     * Play a single pitch by MIDI note number
+     * Play a single pitch by MIDI note number.
+     * Uses native Oboe engine for low-latency playback.
      */
     fun playMidiNote(
         midiNote: Int,
         durationMs: Int = DEFAULT_DURATION_MS,
         velocity: Float = 0.8f
     ) {
-        currentPlayJob?.cancel()
-        currentPlayJob = scope.launch {
-            try {
-                _state.value = _state.value.copy(
-                    isPlaying = true,
-                    currentMidiNote = midiNote
-                )
-                
-                // Use SoundFont if available, otherwise fall back to synth
-                if (useSoundFont && soundFontPlayer.isReady()) {
-                    soundFontPlayer.playNote(midiNote, durationMs, velocity)
-                } else {
-                    val frequency = midiToFrequency(midiNote)
-                    playTone(frequency, durationMs, velocity)
-                }
-                
-            } finally {
-                _state.value = _state.value.copy(
-                    isPlaying = false,
-                    currentMidiNote = null
-                )
+        Log.d(TAG, "playMidiNote: midi=$midiNote, duration=${durationMs}ms, velocity=$velocity")
+        
+        _state.value = _state.value.copy(
+            isPlaying = true,
+            currentMidiNote = midiNote
+        )
+        
+        // Use native audio if available (non-blocking, fire-and-forget)
+        if (isNativeReady && nativeAudio.isReady()) {
+            Log.d(TAG, "Using native Oboe+TinySoundFont for playback")
+            nativeAudio.playNote(midiNote, velocity, durationMs)
+        } else {
+            Log.d(TAG, "Using synth fallback for playback")
+            scope.launch {
+                val frequency = midiToFrequency(midiNote)
+                playTone(frequency, durationMs, velocity)
             }
+        }
+        
+        // Schedule state update after note ends
+        scope.launch {
+            delay(durationMs.toLong())
+            _state.value = _state.value.copy(
+                isPlaying = false,
+                currentMidiNote = null
+            )
         }
     }
     
@@ -189,12 +195,20 @@ class MidiPlayer @Inject constructor(
     }
     
     /**
-     * Play metronome click sound
+     * Play metronome click sound.
+     * Uses native audio for low-latency clicks.
      * @param isAccented true for first beat (louder), false for other beats
      */
     suspend fun playMetronomeClick(isAccented: Boolean = false) {
+        // Use native audio if available (non-blocking)
+        if (isNativeReady && nativeAudio.isReady()) {
+            nativeAudio.playMetronome(isAccented)
+            return
+        }
+        
+        // Fallback to synthesized click
         withContext(Dispatchers.Default) {
-            val frequency = if (isAccented) 1500f else 1200f // Higher pitch for accent
+            val frequency = if (isAccented) 1500f else 1200f
             val durationMs = if (isAccented) 80 else 50
             val velocity = if (isAccented) 1.0f else 0.6f
             
@@ -203,7 +217,6 @@ class MidiPlayer @Inject constructor(
             
             for (i in 0 until numSamples) {
                 val time = i.toDouble() / SAMPLE_RATE
-                // Click is a decaying sine wave
                 val decay = kotlin.math.exp(-time * 50.0)
                 val sample = kotlin.math.sin(2.0 * Math.PI * frequency * time) * decay
                 samples[i] = (sample * velocity * Short.MAX_VALUE).toInt().toShort()
@@ -324,7 +337,7 @@ class MidiPlayer @Inject constructor(
     
     fun release() {
         stop()
-        soundFontPlayer.release()
+        nativeAudio.release()
         scope.cancel()
     }
 }

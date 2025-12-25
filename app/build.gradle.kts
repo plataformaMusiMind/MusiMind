@@ -27,6 +27,29 @@ android {
         // Supabase Configuration
         buildConfigField("String", "SUPABASE_URL", "\"https://qspzqkyiemjtrlupfzuq.supabase.co\"")
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFzcHpxa3lpZW1qdHJsdXBmenVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NzYxMzksImV4cCI6MjA4MjE1MjEzOX0.aeVU-FgVOZ-haHg78hqpmlfTP48FUcqTz7sD7pkbM54\"")
+        
+        // NDK Configuration for native audio
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        }
+        
+        externalNativeBuild {
+            cmake {
+                cppFlags += "-std=c++17"
+                arguments += listOf("-DANDROID_STL=c++_shared")
+            }
+        }
+    }
+    
+    // NDK version for Oboe compatibility
+    ndkVersion = "25.1.8937393"
+    
+    // CMake build configuration
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     buildTypes {
@@ -57,6 +80,7 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        prefab = true  // Enable prefab for Oboe
     }
 
     packaging {
@@ -122,10 +146,7 @@ dependencies {
     // DataStore
     implementation(libs.datastore.preferences)
 
-    // Audio Processing - Native Android implementation (no external dependency needed)
-
-    // SoundFont Playback (MikroSoundFont)
-    implementation("com.github.nickthecoder:mikrosoundfont:0.0.3")
+    // Audio Processing - SoundFont parsing is done in pure Kotlin (SoundFontPlayer.kt)
 
     // Material Design
     implementation(libs.material)

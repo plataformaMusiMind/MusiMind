@@ -60,9 +60,35 @@ class SolfegeViewModel @Inject constructor(
     
     private fun updateStateFromFeedback(feedback: SolfegeFeedbackState) {
         _state.update { state ->
+            // Update notes with feedback colors
+            val updatedNotes = if (feedback.noteFeedbacks.isNotEmpty()) {
+                state.notes.mapIndexed { index, note ->
+                    val noteFeedback = feedback.noteFeedbacks.getOrNull(index)
+                    if (noteFeedback != null) {
+                        note.copy(
+                            pitchFeedback = when (noteFeedback.pitchStatus) {
+                                PitchStatus.CORRECT -> FeedbackState.CORRECT
+                                PitchStatus.FLAT, PitchStatus.SHARP -> FeedbackState.INCORRECT
+                                PitchStatus.NOT_EVALUATED -> FeedbackState.NONE
+                            },
+                            durationFeedback = when (noteFeedback.timingStatus) {
+                                TimingStatus.ON_TIME -> FeedbackState.CORRECT
+                                TimingStatus.EARLY, TimingStatus.LATE -> FeedbackState.INCORRECT
+                                TimingStatus.NOT_PLAYED -> FeedbackState.NONE
+                            }
+                        )
+                    } else {
+                        note
+                    }
+                }
+            } else {
+                state.notes
+            }
+            
             state.copy(
+                notes = updatedNotes,
                 currentBeat = feedback.currentBeatInMeasure,
-                currentNoteIndex = if (feedback.currentNoteIndex >= 0) feedback.currentNoteIndex else state.currentNoteIndex,
+                currentNoteIndex = feedback.currentNoteIndex, // Always use feedback value (including -1 for reset)
                 isPlaying = feedback.phase == SolfegePhase.PLAYING || feedback.phase == SolfegePhase.COUNTDOWN,
                 statusText = when (feedback.phase) {
                     SolfegePhase.IDLE -> "pronto"
@@ -77,10 +103,14 @@ class SolfegeViewModel @Inject constructor(
                         frequency = feedback.currentPitchHz,
                         note = PitchUtils.frequencyToNoteName(feedback.currentPitchHz),
                         cents = feedback.currentCentDeviation.toInt(),
-                        confidence = 0.9f
+                        amplitude = 0.9f
                     )
                 } else null,
-                isMatching = feedback.isCurrentPitchCorrect
+                isMatching = feedback.isCurrentPitchCorrect,
+                // Ghost note - show where user is singing only during LISTENING phase
+                ghostNoteMidi = if (feedback.isVoiceDetected && feedback.phase == SolfegePhase.LISTENING) {
+                    feedback.currentMidiNote
+                } else null
             )
         }
     }
@@ -151,8 +181,31 @@ class SolfegeViewModel @Inject constructor(
         return Note(
             id = solfegeNote.id,
             durationBeats = solfegeNote.durationBeats,
-            pitch = pitch
+            pitch = pitch,
+            solfegeName = pitchToSolfegeName(pitch),
+            beatNumber = null // Will be calculated during layout
         )
+    }
+    
+    /**
+     * Convert Pitch to solfege name (Dó, Ré, Mi, etc.)
+     */
+    private fun pitchToSolfegeName(pitch: Pitch): String {
+        val baseName = when (pitch.note) {
+            NoteName.C -> "Dó"
+            NoteName.D -> "Ré"
+            NoteName.E -> "Mi"
+            NoteName.F -> "Fá"
+            NoteName.G -> "Sol"
+            NoteName.A -> "Lá"
+            NoteName.B -> "Si"
+        }
+        val alteration = when (pitch.alteration) {
+            1 -> "♯"
+            -1 -> "♭"
+            else -> ""
+        }
+        return "$baseName$alteration"
     }
     
     /**
@@ -208,26 +261,57 @@ class SolfegeViewModel @Inject constructor(
     }
     
     /**
+     * Reset all feedback state before starting a new playback or solfege session.
+     * Clears note feedback colors, resets highlight to first note, clears ghost note.
+     */
+    private fun resetForNewExercise() {
+        _state.update { state ->
+            state.copy(
+                // Reset all notes to clean feedback state
+                notes = state.notes.map { note ->
+                    note.copy(
+                        pitchFeedback = FeedbackState.NONE,
+                        durationFeedback = FeedbackState.NONE
+                    )
+                },
+                // Set highlight to first note (0), not -1
+                currentNoteIndex = 0,
+                // Reset other visual state
+                currentBeat = 0,
+                ghostNoteMidi = null,
+                currentPitchResult = null,
+                isMatching = false,
+                statusText = "preparando..."
+            )
+        }
+    }
+    
+    /**
      * Play entire melody with sample-accurate audio engine.
      * Uses the new SolfegeAudioEngine for precise synchronization.
+     * Mode: PLAYBACK (com piano)
      */
     fun playMelody() {
         val currentState = _state.value
         if (currentState.isPlaying) return
         
+        // Reset all feedback state before starting
+        resetForNewExercise()
+        
         // Convert Note list to ExpectedNote for audio engine
-        val expectedNotes = convertToExpectedNotes(currentState.notes)
+        val expectedNotes = convertToExpectedNotes(_state.value.notes)
         
         // Configure audio engine
         audioEngine.configure(
             notes = expectedNotes,
-            tempo = currentState.tempo.toDouble(),
+            tempo = _state.value.tempo.toDouble(),
             timeSignatureNumerator = 4,
-            timeSignatureDenominator = 4
+            timeSignatureDenominator = 4,
+            octaveOffset = _state.value.currentOctave
         )
         
-        // Start playback (engine handles countdown, metronome, and notes)
-        audioEngine.startPlayback()
+        // Start playback WITH piano (user listens)
+        audioEngine.startPlayback(playPiano = true)
     }
     
     /**
@@ -310,7 +394,41 @@ class SolfegeViewModel @Inject constructor(
     }
     
     /**
-     * Start listening for pitch using the new audio engine.
+     * Play the reference/tonic note for the current key signature.
+     * This helps users find the starting pitch.
+     */
+    fun playReferenceNote() {
+        viewModelScope.launch {
+            val keySignature = _state.value.keySignature
+            val octaveOffset = _state.value.currentOctave
+            
+            // Get MIDI note for the tonic of current key
+            val baseMidiNote = when (keySignature) {
+                "C" -> 60  // C4
+                "G" -> 67  // G4
+                "D" -> 62  // D4
+                "A" -> 69  // A4
+                "E" -> 64  // E4
+                "B" -> 71  // B4
+                "F#", "Gb" -> 66  // F#4
+                "C#", "Db" -> 61  // C#4
+                "F" -> 65  // F4
+                "Bb" -> 70 // Bb4
+                "Eb" -> 63 // Eb4
+                "Ab" -> 68 // Ab4
+                else -> 60 // Default to C4
+            }
+            
+            // Apply octave offset for the reference note
+            val adjustedMidiNote = baseMidiNote + (octaveOffset * 12)
+            
+            midiPlayer.playMidiNote(adjustedMidiNote, durationMs = 1500)
+        }
+    }
+    
+    /**
+     * Start solfege mode (user sings).
+     * Mode: SOLFEGE (sem piano, com deteção de pitch)
      */
     fun startListening() {
         if (!hasPermission()) {
@@ -321,16 +439,22 @@ class SolfegeViewModel @Inject constructor(
             return
         }
         
+        // Reset all feedback state before starting
+        resetForNewExercise()
+        
         // Convert notes for audio engine
         val expectedNotes = convertToExpectedNotes(_state.value.notes)
         
-        // Configure audio engine for listening mode
+        // Configure audio engine for solfege mode
         audioEngine.configure(
             notes = expectedNotes,
-            tempo = _state.value.tempo.toDouble()
+            tempo = _state.value.tempo.toDouble(),
+            timeSignatureNumerator = 4,
+            timeSignatureDenominator = 4,
+            octaveOffset = _state.value.currentOctave
         )
         
-        // Start listening (engine will handle pitch detection and feedback)
+        // Start listening - engine handles countdown internally
         val success = audioEngine.startListening()
         
         if (!success) {
@@ -509,7 +633,7 @@ data class SolfegeState(
     val xpReward: Int = 10,
     val notes: List<Note> = emptyList(),
     val totalNotes: Int = 0,
-    val currentNoteIndex: Int = 0,
+    val currentNoteIndex: Int = -1,  // -1 means no note highlighted until playback starts
     val currentNote: Note? = null,
     val currentNoteState: NoteState = NoteState.NORMAL,
     
@@ -518,6 +642,9 @@ data class SolfegeState(
     
     val currentPitchResult: PitchResult? = null,
     val isMatching: Boolean = false,
+    
+    // Ghost note - shows where user is actually singing (MIDI note number)
+    val ghostNoteMidi: Int? = null,
     
     val correctCount: Int = 0,
     val lives: Int = 3,

@@ -4,6 +4,7 @@ import android.content.Context
 import com.musimind.music.audio.metronome.Metronome
 import com.musimind.music.audio.midi.MidiPlayer
 import com.musimind.music.audio.pitch.PitchDetector
+import com.musimind.music.audio.nativeaudio.NativeAudioBridge
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -17,6 +18,14 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object AudioModule {
+    
+    @Provides
+    @Singleton
+    fun provideNativeAudioBridge(
+        @ApplicationContext context: Context
+    ): NativeAudioBridge {
+        return NativeAudioBridge(context)
+    }
     
     @Provides
     @Singleton
@@ -36,7 +45,11 @@ object AudioModule {
     
     @Provides
     @Singleton
-    fun provideMidiPlayer(): MidiPlayer {
-        return MidiPlayer()
+    fun provideMidiPlayer(
+        @ApplicationContext context: Context,
+        nativeAudioBridge: NativeAudioBridge
+    ): MidiPlayer {
+        return MidiPlayer(context, nativeAudioBridge)
     }
 }
+

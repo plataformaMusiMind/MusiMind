@@ -118,7 +118,8 @@ fun SolfegeExerciseScreen(
                     onPrevious = { viewModel.previousNote() },
                     onOctaveChange = { viewModel.changeOctave(it) },
                     onToggleBeatNumbers = { viewModel.toggleBeatNumbers() },
-                    onToggleSolfegeNames = { viewModel.toggleSolfegeNames() }
+                    onToggleSolfegeNames = { viewModel.toggleSolfegeNames() },
+                    onPlayReferenceNote = { viewModel.playReferenceNote() }
                 )
             }
         }
@@ -139,7 +140,8 @@ private fun SolfegeExerciseContent(
     onPrevious: () -> Unit,
     onOctaveChange: (Int) -> Unit,
     onToggleBeatNumbers: () -> Unit,
-    onToggleSolfegeNames: () -> Unit
+    onToggleSolfegeNames: () -> Unit,
+    onPlayReferenceNote: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -171,6 +173,8 @@ private fun SolfegeExerciseContent(
             ContinuousScoreView(
                 notes = state.notes,
                 currentNoteIndex = state.currentNoteIndex,
+                ghostNoteMidi = state.ghostNoteMidi,
+                currentOctave = state.currentOctave,
                 showBeatNumbers = state.showBeatNumbers,
                 showSolfegeNames = state.showSolfegeNames,
                 clef = state.clef,
@@ -208,13 +212,15 @@ private fun SolfegeExerciseContent(
             showBeatNumbers = state.showBeatNumbers,
             showSolfegeNames = state.showSolfegeNames,
             statusText = state.statusText,
+            keySignature = state.keySignature,
             onOctaveChange = onOctaveChange,
             onPlayMelody = onPlayMelody,
             onStopPlayback = onStopPlayback,
             onStartSolfege = onStartListening,
             onStopSolfege = onStopListening,
             onToggleBeatNumbers = onToggleBeatNumbers,
-            onToggleSolfegeNames = onToggleSolfegeNames
+            onToggleSolfegeNames = onToggleSolfegeNames,
+            onPlayReferenceNote = onPlayReferenceNote
         )
     }
 }
@@ -293,6 +299,8 @@ private fun SolfegeHeader(
 private fun ContinuousScoreView(
     notes: List<Note>,
     currentNoteIndex: Int,
+    ghostNoteMidi: Int?,
+    currentOctave: Int,
     showBeatNumbers: Boolean,
     showSolfegeNames: Boolean,
     clef: ClefType,
@@ -466,6 +474,76 @@ private fun ContinuousScoreView(
             }
             canvas.drawText(noteheadGlyph.toString(), noteX, noteY, notePaint)
             
+            // Draw ghost note (where user is actually singing) - only for current note
+            if (index == currentNoteIndex && ghostNoteMidi != null) {
+                // Apply octave offset to show ghost note at same staff position as expected
+                // When user sings octave below (-1), we add 12 to adjust to written octave
+                val adjustedGhostMidi = ghostNoteMidi - (currentOctave * 12)
+                
+                // Convert MIDI note to staff position
+                val ghostOctave = (adjustedGhostMidi / 12) - 1
+                val noteIndex = adjustedGhostMidi % 12
+                val ghostNoteName = when (noteIndex) {
+                    0 -> NoteName.C
+                    1, 2 -> NoteName.D  // C#, D
+                    3, 4 -> NoteName.E  // D#, E
+                    5 -> NoteName.F
+                    6, 7 -> NoteName.G  // F#, G
+                    8, 9 -> NoteName.A  // G#, A
+                    10, 11 -> NoteName.B // A#, B
+                    else -> NoteName.C
+                }
+                val ghostPitch = Pitch(ghostNoteName, ghostOctave)
+                val ghostStaffPosition = ghostPitch.staffPosition(clef)
+                val ghostNoteY = startY + staffHeight - (ghostStaffPosition * staffSpace / 2f) + staffSpace / 2f
+                
+                // Only draw ghost note if it's at a different position than expected note
+                if (ghostStaffPosition != staffPosition) {
+                    val ghostColor = if (ghostStaffPosition > staffPosition) {
+                        // User singing higher than expected - blue/cyan tint
+                        android.graphics.Color.argb(120, 100, 180, 255)
+                    } else {
+                        // User singing lower than expected - orange/red tint
+                        android.graphics.Color.argb(120, 255, 150, 100)
+                    }
+                    
+                    val ghostPaint = android.graphics.Paint(musicPaint).apply {
+                        color = ghostColor
+                    }
+                    canvas.drawText(noteheadGlyph.toString(), noteX, ghostNoteY, ghostPaint)
+                    
+                    // Draw ledger lines for ghost note if needed
+                    if (ghostStaffPosition < 0 || ghostStaffPosition > 8) {
+                        val noteheadWidth = staffSpace * 1.18f
+                        val noteCenterX = noteX + noteheadWidth / 2f
+                        val ledgerWidth = staffSpace * 2.2f
+                        val ledgerStartX = noteCenterX - ledgerWidth / 2f
+                        val ledgerEndX = noteCenterX + ledgerWidth / 2f
+                        
+                        val ghostLedgerPaint = android.graphics.Paint().apply {
+                            color = ghostColor
+                            strokeWidth = staffSpace * 0.15f
+                            style = android.graphics.Paint.Style.STROKE
+                            isAntiAlias = true
+                        }
+                        
+                        if (ghostStaffPosition < 0) {
+                            val ledgerCount = (-ghostStaffPosition + 1) / 2
+                            for (j in 1..ledgerCount) {
+                                val ledgerY = startY + staffHeight + j * staffSpace
+                                canvas.drawLine(ledgerStartX, ledgerY, ledgerEndX, ledgerY, ghostLedgerPaint)
+                            }
+                        } else if (ghostStaffPosition > 8) {
+                            val ledgerCount = (ghostStaffPosition - 8 + 1) / 2
+                            for (j in 1..ledgerCount) {
+                                val ledgerY = startY - j * staffSpace
+                                canvas.drawLine(ledgerStartX, ledgerY, ledgerEndX, ledgerY, ghostLedgerPaint)
+                            }
+                        }
+                    }
+                }
+            }
+            
             // Draw stem with proper connection
             if (note.durationBeats < 4f) {
                 val stemUp = staffPosition < 4
@@ -515,9 +593,18 @@ private fun ContinuousScoreView(
             // Draw solfege name below - with EXTRA padding to avoid overlapping stems
             if (showSolfegeNames && note.solfegeName != null) {
                 // Fixed position low enough to clear most downward stems
-                val textY = startY + staffHeight + staffSpace * 5f
+                val textY = startY + staffHeight + staffSpace * 3.5f
                 val noteheadWidth = staffSpace * 1.18f
-                canvas.drawText(note.solfegeName, noteX + noteheadWidth / 2, textY, textPaint)
+                
+                // Use a larger, darker text for solfege names
+                val solfegePaint = android.graphics.Paint().apply {
+                    textSize = staffSpace * 1.2f
+                    color = android.graphics.Color.argb(255, 50, 50, 50) // Dark gray
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    isAntiAlias = true
+                    isFakeBoldText = true
+                }
+                canvas.drawText(note.solfegeName, noteX + noteheadWidth / 2, textY, solfegePaint)
             }
             
             // Draw barlines
@@ -553,13 +640,15 @@ private fun SolfegeControlPanel(
     showBeatNumbers: Boolean,
     showSolfegeNames: Boolean,
     statusText: String,
+    keySignature: String,
     onOctaveChange: (Int) -> Unit,
     onPlayMelody: () -> Unit,
     onStopPlayback: () -> Unit,
     onStartSolfege: () -> Unit,
     onStopSolfege: () -> Unit,
     onToggleBeatNumbers: () -> Unit,
-    onToggleSolfegeNames: () -> Unit
+    onToggleSolfegeNames: () -> Unit,
+    onPlayReferenceNote: () -> Unit
 ) {
     // Animated scale for metronome beat pulse
     val beatScale by animateFloatAsState(
@@ -721,6 +810,31 @@ private fun SolfegeControlPanel(
                         else 
                             MaterialTheme.colorScheme.onPrimaryContainer
                     )
+                }
+            }
+            
+            // Reference Note Button - plays the tonic
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 12.dp)
+            ) {
+                Text(
+                    text = "Tônica",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                FilledTonalButton(
+                    onClick = onPlayReferenceNote,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                    modifier = Modifier.height(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.MusicNote,
+                        contentDescription = "Ouvir nota de referência",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(keySignature, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
 

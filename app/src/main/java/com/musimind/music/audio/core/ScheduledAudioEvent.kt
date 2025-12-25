@@ -35,6 +35,7 @@ sealed class ScheduledAudioEvent(
         override val samplePosition: Long,
         override val durationSamples: Long,
         val midiNote: Int,
+        val noteIndex: Int = 0, // Index in the expected notes list
         val velocity: Float = 0.8f
     ) : ScheduledAudioEvent(samplePosition, durationSamples)
     

@@ -69,9 +69,13 @@ class SolfegeAudioEngine(
     // Estado
     private var isRunning = false
     private var phase = SolfegePhase.IDLE
+    private var shouldPlayPiano = true // Flag to control piano playback
     
     // Coroutine scope
     private val engineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    
+    // Octave offset for pitch detection (-1, 0, +1 = -8va, normal, +8va)
+    private var octaveOffset = 0
     
     /**
      * Configura o engine para um novo exercício.
@@ -79,13 +83,16 @@ class SolfegeAudioEngine(
      * @param notes Lista de notas esperadas
      * @param tempo BPM do exercício
      * @param timeSignatureNumerator Ex: 4 para 4/4
+     * @param octaveOffset Offset de oitava: -1 = cantar oitava abaixo, +1 = cantar oitava acima
      */
     fun configure(
         notes: List<ExpectedNote>,
         tempo: Double,
         timeSignatureNumerator: Int = 4,
-        timeSignatureDenominator: Int = 4
+        timeSignatureDenominator: Int = 4,
+        octaveOffset: Int = 0
     ) {
+        this.octaveOffset = octaveOffset
         expectedNotes = notes
         
         // Cria novo clock
@@ -96,8 +103,24 @@ class SolfegeAudioEngine(
             timeSignatureDenominator = timeSignatureDenominator
         )
         
+        // IMPORTANTE: Preparar notas com endSample calculado
+        expectedNotes = expectedNotes.map { note ->
+            val startSample = audioClock.beatToSample(note.startBeat)
+            val durationSamples = (note.durationBeats * audioClock.samplesPerBeat).toLong()
+            note.copy(
+                startSample = startSample,
+                durationSamples = durationSamples,
+                endSample = startSample + durationSamples
+            )
+        }
+        
+        Log.d(TAG, "Configured with ${expectedNotes.size} notes, tempo=$tempo")
+        expectedNotes.forEachIndexed { i, note ->
+            Log.d(TAG, "  Note $i: midi=${note.midiNote}, startBeat=${note.startBeat}, durationBeats=${note.durationBeats}, endSample=${note.endSample}")
+        }
+        
         // Configura analysis engine
-        analysisEngine.configure(notes, audioClock)
+        analysisEngine.configure(notes, audioClock, octaveOffset)
         
         // Limpa eventos anteriores
         scheduledEvents.clear()
@@ -155,7 +178,7 @@ class SolfegeAudioEngine(
     }
     
     private fun scheduleNotes(notes: List<ExpectedNote>) {
-        for (note in notes) {
+        notes.forEachIndexed { index, note ->
             val startSample = audioClock.beatToSample(note.startBeat)
             val durationSamples = (note.durationBeats * audioClock.samplesPerBeat).toLong()
             
@@ -163,21 +186,26 @@ class SolfegeAudioEngine(
                 ScheduledAudioEvent.NoteEvent(
                     samplePosition = startSample,
                     durationSamples = durationSamples,
-                    midiNote = note.midiNote
+                    midiNote = note.midiNote,
+                    noteIndex = index
                 )
             )
         }
     }
     
     /**
-     * Inicia reprodução melodia (usuário ouve).
+     * Inicia reprodução melodia.
+     * @param playPiano Se true, toca o piano. Se false, só metrônomo (modo solfege)
      */
-    fun startPlayback() {
+    fun startPlayback(playPiano: Boolean = true) {
         if (isRunning) return
         
+        shouldPlayPiano = playPiano
         isRunning = true
         phase = SolfegePhase.COUNTDOWN
         currentSamplePosition.set(-audioClock.samplesPerMeasure.toLong())
+        
+        Log.d(TAG, "Starting playback: playPiano=$playPiano, tempo=${audioClock.tempo}")
         
         engineScope.launch {
             runPlaybackLoop()
@@ -187,47 +215,66 @@ class SolfegeAudioEngine(
     private suspend fun runPlaybackLoop() = withContext(Dispatchers.Default) {
         val msPerFrame = (BUFFER_SIZE_FRAMES * 1000.0 / SAMPLE_RATE).toLong()
         
+        // Set para rastrear eventos já disparados
+        val triggeredEvents = mutableSetOf<ScheduledAudioEvent>()
+        
         while (isRunning && isActive) {
-            val frameStart = currentSamplePosition.get()
-            val frameEnd = frameStart + BUFFER_SIZE_FRAMES
+            val currentSample = currentSamplePosition.get()
             
-            // Processa eventos que caem neste frame
-            val eventsInFrame = scheduledEvents.filter { event ->
-                event.isInFrame(frameStart, frameEnd)
+            // PRIMEIRO: Atualiza fase quando countdown termina (ANTES de processar eventos)
+            if (phase == SolfegePhase.COUNTDOWN && currentSample >= 0) {
+                // Modo solfege: LISTENING, Modo playback: PLAYING
+                val newPhase = if (shouldPlayPiano) SolfegePhase.PLAYING else SolfegePhase.LISTENING
+                phase = newPhase
+                updatePhase(newPhase, 0)
+                Log.d(TAG, "Phase changed to $newPhase at sample $currentSample")
             }
             
-            for (event in eventsInFrame) {
-                when (event) {
-                    is ScheduledAudioEvent.CountdownEvent -> {
-                        midiPlayer.playMetronomeClick(isAccented = event.countNumber == 1)
-                        updatePhase(SolfegePhase.COUNTDOWN, event.countNumber)
-                    }
-                    is ScheduledAudioEvent.MetronomeClick -> {
-                        if (frameStart >= 0) {
+            // SEGUNDO: Processa eventos que devem disparar NESTE frame
+            for (event in scheduledEvents) {
+                // Pula eventos já disparados
+                if (event in triggeredEvents) continue
+                
+                // Dispara quando currentSample >= samplePosition do evento
+                if (currentSample >= event.samplePosition) {
+                    triggeredEvents.add(event)
+                    
+                    when (event) {
+                        is ScheduledAudioEvent.CountdownEvent -> {
+                            Log.d(TAG, "Countdown beat: ${event.countNumber}")
+                            midiPlayer.playMetronomeClick(isAccented = event.countNumber == 1)
+                            updatePhase(SolfegePhase.COUNTDOWN, event.countNumber)
+                        }
+                        is ScheduledAudioEvent.MetronomeClick -> {
+                            Log.d(TAG, "Metronome beat: ${event.beatNumber}")
                             midiPlayer.playMetronomeClick(isAccented = event.isAccented)
                             updateBeatDisplay(event.beatNumber)
                         }
-                    }
-                    is ScheduledAudioEvent.NoteEvent -> {
-                        if (phase == SolfegePhase.PLAYING) {
-                            val durationMs = (event.durationSamples * 1000 / SAMPLE_RATE).toInt()
-                            midiPlayer.playPitch(event.midiNote, durationMs = (durationMs * 0.95).toInt())
+                        is ScheduledAudioEvent.NoteEvent -> {
+                            // Sempre emitir feedback visual
+                            updateCurrentNote(event.noteIndex)
+                            Log.d(TAG, "Note event: index=${event.noteIndex}, shouldPlayPiano=$shouldPlayPiano, phase=$phase")
+                            
+                            // Só toca piano se flag estiver habilitada e estamos em PLAYING
+                            if (shouldPlayPiano && phase == SolfegePhase.PLAYING) {
+                                val durationMs = (event.durationSamples * 1000 / SAMPLE_RATE).toInt()
+                                // Apply octave offset so piano plays at the same octave user will sing
+                                val adjustedMidiNote = event.midiNote + (octaveOffset * 12)
+                                Log.d(TAG, "Playing note: midi=${adjustedMidiNote} (original=${event.midiNote}, offset=$octaveOffset), duration=${durationMs}ms")
+                                midiPlayer.playMidiNote(adjustedMidiNote, durationMs = durationMs)
+                            }
                         }
                     }
                 }
             }
             
-            // Atualiza fase quando countdown termina
-            if (phase == SolfegePhase.COUNTDOWN && frameStart >= 0) {
-                phase = SolfegePhase.PLAYING
-                updatePhase(SolfegePhase.PLAYING, 0)
-            }
-            
-            // Verifica fim do exercício
+            // TERCEIRO: Verifica fim do exercício
             val lastNote = expectedNotes.lastOrNull()
-            if (lastNote != null && frameStart > lastNote.endSample) {
+            if (lastNote != null && currentSample > lastNote.endSample) {
                 phase = SolfegePhase.COMPLETED
                 updatePhase(SolfegePhase.COMPLETED, 0)
+                updateCurrentNote(-1)  // Reset highlight
+                Log.d(TAG, "Exercise completed!")
                 isRunning = false
                 break
             }
@@ -241,9 +288,18 @@ class SolfegeAudioEngine(
     
     /**
      * Inicia modo de escuta (usuário canta).
+     * Agora inclui countdown interno, não depende de startPlayback().
      */
     fun startListening(): Boolean {
-        if (recordingJob?.isActive == true) return false
+        if (isRunning) {
+            Log.w(TAG, "Engine already running, skipping startListening")
+            return false
+        }
+        
+        if (expectedNotes.isEmpty()) {
+            Log.e(TAG, "No notes configured, call configure() first")
+            return false
+        }
         
         // Verifica permissão
         if (!hasRecordPermission()) {
@@ -251,7 +307,29 @@ class SolfegeAudioEngine(
             return false
         }
         
-        // Inicia gravação
+        // Configura para modo solfege (sem piano)
+        shouldPlayPiano = false
+        isRunning = true
+        phase = SolfegePhase.COUNTDOWN
+        
+        // Inicia em posição negativa (1 compasso de countdown)
+        currentSamplePosition.set(-audioClock.samplesPerMeasure.toLong())
+        
+        Log.d(TAG, "Starting listening mode: tempo=${audioClock.tempo}, samplesPerBeat=${audioClock.samplesPerBeat}")
+        
+        // Inicia loop de playback (countdown + metrônomo)
+        engineScope.launch {
+            runPlaybackLoop()
+        }
+        
+        // Inicia gravação em paralelo
+        return startRecordingInternal()
+    }
+    
+    /**
+     * Inicia gravação do microfone (interno).
+     */
+    private fun startRecordingInternal(): Boolean {
         val bufferSize = AudioRecord.getMinBufferSize(
             SAMPLE_RATE,
             AudioFormat.CHANNEL_IN_MONO,
@@ -273,9 +351,6 @@ class SolfegeAudioEngine(
             }
             
             audioRecord?.startRecording()
-            phase = SolfegePhase.LISTENING
-            currentSamplePosition.set(0)
-            isRunning = true
             
             // Inicia thread de gravação
             recordingJob = engineScope.launch(Dispatchers.IO) {
@@ -301,9 +376,11 @@ class SolfegeAudioEngine(
             val read = audioRecord?.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING) ?: 0
             
             if (read > 0) {
+                // Get current position from the playback loop clock (don't advance it here!)
                 val samplePos = currentSamplePosition.get()
                 ringBuffer.write(buffer.copyOf(read), samplePos)
-                currentSamplePosition.addAndGet(read.toLong())
+                // NOTE: Do NOT advance currentSamplePosition here!
+                // The playback loop is the single source of truth for timing.
             }
         }
     }
@@ -340,6 +417,8 @@ class SolfegeAudioEngine(
         audioRecord = null
         
         phase = SolfegePhase.IDLE
+        updatePhase(SolfegePhase.IDLE, 0)
+        updateCurrentNote(-1)  // Reset highlight to initial state
     }
     
     /**
@@ -362,6 +441,12 @@ class SolfegeAudioEngine(
         _feedbackState.value = _feedbackState.value.copy(
             currentBeatInMeasure = beatNumber,
             isDownbeat = beatNumber == 1
+        )
+    }
+    
+    private fun updateCurrentNote(noteIndex: Int) {
+        _feedbackState.value = _feedbackState.value.copy(
+            currentNoteIndex = noteIndex
         )
     }
     

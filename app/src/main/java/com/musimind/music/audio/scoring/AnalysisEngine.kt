@@ -36,6 +36,9 @@ class AnalysisEngine(
     private val onsetSamplePerNote = mutableMapOf<Int, Long?>()
     private val offsetSamplePerNote = mutableMapOf<Int, Long?>()
     
+    // Octave offset for transposition (-1, 0, +1 = -12, 0, +12 MIDI semitones)
+    private var octaveOffset = 0
+    
     // Estado atual
     private var lastPitchFrame: PitchFrame = PitchFrame.SILENCE
     private var phase: SolfegePhase = SolfegePhase.IDLE
@@ -45,8 +48,10 @@ class AnalysisEngine(
      */
     fun configure(
         notes: List<ExpectedNote>,
-        clock: AudioClock
+        clock: AudioClock,
+        octaveOffset: Int = 0
     ) {
+        this.octaveOffset = octaveOffset
         expectedNotes = notes.map { it.copy() }
         audioClock = clock
         
@@ -106,8 +111,9 @@ class AnalysisEngine(
         // 3. Encontra nota atual baseado na posição
         updateCurrentNoteIndex(samplePosition)
         
-        // 4. Armazena resultado para a nota atual
-        if (currentNoteIndex in expectedNotes.indices) {
+        // 4. Armazena resultado para a nota atual (SKIP during countdown)
+        // Only process pitch feedback when samplePosition >= 0 (exercise has started)
+        if (samplePosition >= 0 && currentNoteIndex in expectedNotes.indices) {
             val noteFrames = pitchFramesPerNote.getOrPut(currentNoteIndex) { mutableListOf() }
             noteFrames.add(updatedPitchFrame)
             
@@ -128,6 +134,12 @@ class AnalysisEngine(
     }
     
     private fun updateCurrentNoteIndex(samplePosition: Long) {
+        // During countdown (negative position), set index to -1
+        if (samplePosition < 0) {
+            currentNoteIndex = -1
+            return
+        }
+        
         // Encontra a nota que contém o sample position atual
         for (i in expectedNotes.indices) {
             if (expectedNotes[i].containsSample(samplePosition)) {
@@ -191,8 +203,8 @@ class AnalysisEngine(
         val onsetSample = onsetSamplePerNote[index]
         val offsetSample = offsetSamplePerNote[index]
         
-        // Scoring de pitch
-        val pitchResult = PitchScorer.score(pitchFrames, note.midiNote)
+        // Scoring de pitch (with octave offset for transposition)
+        val pitchResult = PitchScorer.score(pitchFrames, note.midiNote, octaveOffset)
         
         // Scoring de timing
         val timingResult = TimingScorer.score(
@@ -227,7 +239,10 @@ class AnalysisEngine(
         if (currentNoteIndex !in expectedNotes.indices) return false
         
         val expectedNote = expectedNotes[currentNoteIndex]
-        return lastPitchFrame.midiNote == expectedNote.midiNote &&
+        // Apply octave offset: if user sings octave below (-1), add 12 to detected note
+        // if user sings octave above (+1), subtract 12 from detected note
+        val adjustedMidiNote = lastPitchFrame.midiNote - (octaveOffset * 12)
+        return adjustedMidiNote == expectedNote.midiNote &&
                kotlin.math.abs(lastPitchFrame.centDeviation) <= 25f
     }
     
