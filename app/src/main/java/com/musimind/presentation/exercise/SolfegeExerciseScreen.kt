@@ -412,7 +412,10 @@ private fun ContinuousScoreView(
             
             // Calculate Y position
             val staffPosition = note.pitch.staffPosition(clef)
-            val noteY = startY + staffHeight - (staffPosition * staffSpace / 2f) + staffSpace / 2f
+            // E4 (staffPosition 2) should be at staffBottom (startY + staffHeight), which is the first line from bottom
+            // Each staff position moves half a staffSpace up
+            // staffBottom (startY + staffHeight) corresponds to staffPosition 2 (E4 in treble clef)
+            val noteY = startY + staffHeight - ((staffPosition - 2) * staffSpace / 2f)
             
             // Determine colors based on feedback
             val noteheadColor = when (note.pitchFeedback) {
@@ -438,27 +441,49 @@ private fun ContinuousScoreView(
                 } else {
                     String.format("%.1f", note.beatNumber)
                 }
-                // Center text above note based on notehead width
-                val noteheadWidth = staffSpace * 1.18f
-                canvas.drawText(beatText, noteX + noteheadWidth / 2, startY - staffSpace * 0.5f, textPaint)
+                // Get notehead glyph for accurate width measurement
+                val tempNoteheadGlyph = when {
+                    note.durationBeats >= 4f -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.WHOLE
+                    note.durationBeats >= 2f -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.HALF
+                    else -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.BLACK
+                }
+                val tempNoteheadWidth = musicPaint.measureText(tempNoteheadGlyph.toString())
+                canvas.drawText(beatText, noteX + tempNoteheadWidth / 2, startY - staffSpace * 0.5f, textPaint)
             }
             
+            // Get notehead glyph first for accurate width measurement
+            val noteheadGlyph = when {
+                note.durationBeats >= 4f -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.WHOLE
+                note.durationBeats >= 2f -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.HALF
+                else -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.BLACK
+            }
+            // Measure actual glyph width for precise alignment
+            val actualNoteheadWidth = musicPaint.measureText(noteheadGlyph.toString())
+            
             // Draw ledger lines
-            if (staffPosition < 0 || staffPosition > 8) {
-                val noteheadWidth = staffSpace * 1.18f
-                val noteCenterX = noteX + noteheadWidth / 2f
-                val ledgerWidth = staffSpace * 2.2f // Wider ledger line
-                val ledgerStartX = noteCenterX - ledgerWidth / 2f
-                val ledgerEndX = noteCenterX + ledgerWidth / 2f
+            // Ledger lines are drawn on even staff positions outside the staff
+            // Below staff: positions 0 (C4), -2 (A3), -4 (F3), etc.
+            // Above staff: positions 12 (A5), 14 (C6), etc.
+            // D4 (position 1) does NOT need a ledger line - it's in the space between C4 and E4
+            if (staffPosition <= 0 || staffPosition >= 12) {
+                // Use measured width for precise centering
+                val ledgerWidth = actualNoteheadWidth * 1.5f
+                // Center the ledger line exactly on the notehead center
+                val ledgerCenterX = noteX + actualNoteheadWidth / 2f
+                val ledgerStartX = ledgerCenterX - ledgerWidth / 2f
+                val ledgerEndX = ledgerCenterX + ledgerWidth / 2f
                 
-                if (staffPosition < 0) {
-                    val ledgerCount = (-staffPosition + 1) / 2
+                if (staffPosition <= 0) {
+                    // Below the staff - draw ledger lines at positions 0, -2, -4, etc.
+                    // Number of ledger lines: for pos 0 or -1 -> 1, for pos -2 or -3 -> 2, etc.
+                    val ledgerCount = ((-staffPosition) / 2) + 1
                     for (j in 1..ledgerCount) {
                         val ledgerY = startY + staffHeight + j * staffSpace
                         canvas.drawLine(ledgerStartX, ledgerY, ledgerEndX, ledgerY, linePaint)
                     }
-                } else if (staffPosition > 8) {
-                    val ledgerCount = (staffPosition - 8 + 1) / 2
+                } else if (staffPosition >= 12) {
+                    // Above the staff - draw ledger lines at positions 12, 14, 16, etc.
+                    val ledgerCount = ((staffPosition - 10) / 2)
                     for (j in 1..ledgerCount) {
                         val ledgerY = startY - j * staffSpace
                         canvas.drawLine(ledgerStartX, ledgerY, ledgerEndX, ledgerY, linePaint)
@@ -467,11 +492,6 @@ private fun ContinuousScoreView(
             }
             
             // Draw notehead
-            val noteheadGlyph = when {
-                note.durationBeats >= 4f -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.WHOLE
-                note.durationBeats >= 2f -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.HALF
-                else -> com.musimind.music.notation.smufl.SMuFLGlyphs.Noteheads.BLACK
-            }
             canvas.drawText(noteheadGlyph.toString(), noteX, noteY, notePaint)
             
             // Draw ghost note (where user is actually singing) - only for current note
@@ -495,7 +515,8 @@ private fun ContinuousScoreView(
                 }
                 val ghostPitch = Pitch(ghostNoteName, ghostOctave)
                 val ghostStaffPosition = ghostPitch.staffPosition(clef)
-                val ghostNoteY = startY + staffHeight - (ghostStaffPosition * staffSpace / 2f) + staffSpace / 2f
+                // Use same formula as noteY
+                val ghostNoteY = startY + staffHeight - ((ghostStaffPosition - 2) * staffSpace / 2f)
                 
                 // Only draw ghost note if it's at a different position than expected note
                 if (ghostStaffPosition != staffPosition) {
@@ -513,12 +534,12 @@ private fun ContinuousScoreView(
                     canvas.drawText(noteheadGlyph.toString(), noteX, ghostNoteY, ghostPaint)
                     
                     // Draw ledger lines for ghost note if needed
-                    if (ghostStaffPosition < 0 || ghostStaffPosition > 8) {
-                        val noteheadWidth = staffSpace * 1.18f
-                        val noteCenterX = noteX + noteheadWidth / 2f
-                        val ledgerWidth = staffSpace * 2.2f
-                        val ledgerStartX = noteCenterX - ledgerWidth / 2f
-                        val ledgerEndX = noteCenterX + ledgerWidth / 2f
+                    if (ghostStaffPosition <= 0 || ghostStaffPosition >= 12) {
+                        // Use actualNoteheadWidth for consistent alignment
+                        val ledgerCenterX = noteX + actualNoteheadWidth / 2f
+                        val ledgerWidth = actualNoteheadWidth * 1.5f
+                        val ledgerStartX = ledgerCenterX - ledgerWidth / 2f
+                        val ledgerEndX = ledgerCenterX + ledgerWidth / 2f
                         
                         val ghostLedgerPaint = android.graphics.Paint().apply {
                             color = ghostColor
@@ -527,14 +548,14 @@ private fun ContinuousScoreView(
                             isAntiAlias = true
                         }
                         
-                        if (ghostStaffPosition < 0) {
-                            val ledgerCount = (-ghostStaffPosition + 1) / 2
+                        if (ghostStaffPosition <= 0) {
+                            val ledgerCount = ((-ghostStaffPosition) / 2) + 1
                             for (j in 1..ledgerCount) {
                                 val ledgerY = startY + staffHeight + j * staffSpace
                                 canvas.drawLine(ledgerStartX, ledgerY, ledgerEndX, ledgerY, ghostLedgerPaint)
                             }
-                        } else if (ghostStaffPosition > 8) {
-                            val ledgerCount = (ghostStaffPosition - 8 + 1) / 2
+                        } else if (ghostStaffPosition >= 12) {
+                            val ledgerCount = ((ghostStaffPosition - 10) / 2)
                             for (j in 1..ledgerCount) {
                                 val ledgerY = startY - j * staffSpace
                                 canvas.drawLine(ledgerStartX, ledgerY, ledgerEndX, ledgerY, ghostLedgerPaint)
@@ -546,22 +567,24 @@ private fun ContinuousScoreView(
             
             // Draw stem with proper connection
             if (note.durationBeats < 4f) {
-                val stemUp = staffPosition < 4
+                val stemUp = staffPosition < 6  // B4 (pos 6) is middle line, notes below have stem up
                 val stemLength = staffSpace * 3.5f
-                val noteheadWidth = staffSpace * 1.18f
+                // Use actualNoteheadWidth for consistent stem positioning
+                val stemWidth = staffSpace * 0.13f
                 
                 val stemPaint = android.graphics.Paint().apply {
                     color = stemColor
-                    strokeWidth = staffSpace * 0.13f
+                    strokeWidth = stemWidth
                     style = android.graphics.Paint.Style.STROKE
                     isAntiAlias = true
                 }
                 
                 if (stemUp) {
                     // Stem on right side going up
-                    val stemX = noteX + noteheadWidth - (staffSpace * 0.02f)
-                    val stemStartY = noteY - staffSpace * 0.15f
-                    val stemEndY = stemStartY - stemLength
+                    val stemX = noteX + actualNoteheadWidth - stemWidth / 2f
+                    // Start stem exactly at notehead center (vertically)
+                    val stemStartY = noteY
+                    val stemEndY = noteY - stemLength
                     canvas.drawLine(stemX, stemStartY, stemX, stemEndY, stemPaint)
                     
                     // Draw flag if needed
@@ -569,14 +592,15 @@ private fun ContinuousScoreView(
                         val flagGlyph = SMuFLGlyphs.getFlagForDuration(note.durationBeats, true)
                         flagGlyph?.let {
                             val flagPaint = android.graphics.Paint(musicPaint).apply { color = stemColor }
-                            canvas.drawText(it.toString(), stemX - staffSpace * 0.08f, stemEndY, flagPaint)
+                            canvas.drawText(it.toString(), stemX, stemEndY, flagPaint)
                         }
                     }
                 } else {
                     // Stem on left side going down
-                    val stemX = noteX + (staffSpace * 0.02f)
-                    val stemStartY = noteY + staffSpace * 0.15f
-                    val stemEndY = stemStartY + stemLength
+                    val stemX = noteX + stemWidth / 2f
+                    // Start stem exactly at notehead center (vertically)
+                    val stemStartY = noteY
+                    val stemEndY = noteY + stemLength
                     canvas.drawLine(stemX, stemStartY, stemX, stemEndY, stemPaint)
                     
                     // Draw flag if needed
@@ -584,7 +608,7 @@ private fun ContinuousScoreView(
                         val flagGlyph = SMuFLGlyphs.getFlagForDuration(note.durationBeats, false)
                         flagGlyph?.let {
                             val flagPaint = android.graphics.Paint(musicPaint).apply { color = stemColor }
-                            canvas.drawText(it.toString(), stemX - staffSpace * 0.08f, stemEndY, flagPaint)
+                            canvas.drawText(it.toString(), stemX, stemEndY, flagPaint)
                         }
                     }
                 }
@@ -594,7 +618,6 @@ private fun ContinuousScoreView(
             if (showSolfegeNames && note.solfegeName != null) {
                 // Fixed position low enough to clear most downward stems
                 val textY = startY + staffHeight + staffSpace * 3.5f
-                val noteheadWidth = staffSpace * 1.18f
                 
                 // Use a larger, darker text for solfege names
                 val solfegePaint = android.graphics.Paint().apply {
@@ -604,7 +627,8 @@ private fun ContinuousScoreView(
                     isAntiAlias = true
                     isFakeBoldText = true
                 }
-                canvas.drawText(note.solfegeName, noteX + noteheadWidth / 2, textY, solfegePaint)
+                // Use actualNoteheadWidth for consistent centering
+                canvas.drawText(note.solfegeName, noteX + actualNoteheadWidth / 2, textY, solfegePaint)
             }
             
             // Draw barlines

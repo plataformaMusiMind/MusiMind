@@ -12,6 +12,7 @@ sealed class Screen(val route: String) {
     data object PlanSelection : Screen("plan_selection")
     data object AvatarSelection : Screen("avatar_selection")
     data object OnboardingTutorial : Screen("onboarding_tutorial")
+    data object PlacementTest : Screen("placement_test")
     
     // Main Navigation
     data object Home : Screen("home")
@@ -63,6 +64,21 @@ sealed class Screen(val route: String) {
     data object StudentProgress : Screen("student/{studentId}") {
         fun createRoute(studentId: String) = "student/$studentId"
     }
+    
+    // Mini-Games
+    data object GamesHub : Screen("games_hub")
+    data object NoteCatcher : Screen("game/note_catcher")
+    data object RhythmTap : Screen("game/rhythm_tap")
+    data object MelodyMemory : Screen("game/melody_memory")
+    data object IntervalHero : Screen("game/interval_hero")
+    data object ScalePuzzle : Screen("game/scale_puzzle")
+    data object ChordMatch : Screen("game/chord_match")
+    data object KeyShooter : Screen("game/key_shooter")
+    data object TempoRun : Screen("game/tempo_run")
+    data object SolfegeSing : Screen("game/solfege_sing")
+    data object ChordBuilder : Screen("game/chord_builder")
+    data object ProgressionQuest : Screen("game/progression_quest")
+    data object DailyChallenge : Screen("game/daily_challenge")
     
     // Settings
     data object Settings : Screen("settings")

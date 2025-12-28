@@ -41,7 +41,11 @@ data class Exercise(
     @SerialName("is_active")
     val isActive: Boolean = true,
     @SerialName("sort_order")
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    @SerialName("min_user_level")
+    val minUserLevel: Int? = null,
+    // Transient field for UI usage (not serialized from DB)
+    val category: MusicCategory? = null
 )
 
 /**
@@ -207,3 +211,8 @@ data class UserAchievement(
     @SerialName("unlocked_at")
     val unlockedAt: String? = null
 )
+
+/**
+ * Type alias for backward compatibility
+ */
+typealias UserProgress = ExerciseProgress

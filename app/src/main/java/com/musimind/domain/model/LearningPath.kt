@@ -29,14 +29,19 @@ enum class NodeType {
  * Category of musical content
  */
 @Serializable
-enum class MusicCategory {
-    SOLFEGE,                // Solfejo
-    RHYTHMIC_PERCEPTION,    // Percepção Rítmica
-    MELODIC_PERCEPTION,     // Percepção Melódica
-    INTERVAL_PERCEPTION,    // Percepção Intervalar
-    HARMONIC_PROGRESSIONS,  // Progressões Harmônicas
-    MUSIC_THEORY,           // Teoria Musical
-    EAR_TRAINING            // Treinamento Auditivo
+enum class MusicCategory(val displayName: String) {
+    SOLFEGE("Solfejo"),                           // Solfejo
+    RHYTHMIC_PERCEPTION("Percepção Rítmica"),     // Percepção Rítmica
+    MELODIC_PERCEPTION("Percepção Melódica"),     // Percepção Melódica
+    INTERVAL_PERCEPTION("Percepção Intervalar"),  // Percepção Intervalar
+    HARMONIC_PROGRESSIONS("Progressões Harmônicas"), // Progressões Harmônicas
+    MUSIC_THEORY("Teoria Musical"),               // Teoria Musical
+    EAR_TRAINING("Treinamento Auditivo"),         // Treinamento Auditivo
+    // Additional categories for compatibility
+    RHYTHM("Ritmo"),
+    INTERVALS("Intervalos"),
+    THEORY("Teoria"),
+    HARMONIC_PERCEPTION("Percepção Harmônica")
 }
 
 /**
@@ -55,15 +60,22 @@ data class NodePosition(
 data class LearningNode(
     val id: String,
     val title: String,
-    val description: String,
-    val type: NodeType,
-    val category: MusicCategory,
-    val position: NodePosition,
+    val description: String = "",
+    val type: NodeType = NodeType.THEORY,
+    val category: MusicCategory = MusicCategory.SOLFEGE,
+    val position: NodePosition = NodePosition(0.5f, 0),
     val requiredNodeIds: List<String> = emptyList(),
-    val xpReward: Int,
+    val xpReward: Int = 10,
     val coinReward: Int = 0,
     val iconName: String = "music_note", // Icon identifier
-    val difficulty: Int = 1 // 1-5 difficulty rating
+    val difficulty: Int = 1, // 1-5 difficulty rating
+    // Additional fields for Supabase compatibility
+    @kotlinx.serialization.SerialName("sort_order")
+    val sortOrder: Int = 0,
+    @kotlinx.serialization.SerialName("required_xp")
+    val requiredXp: Int = 0,
+    @kotlinx.serialization.SerialName("node_type")
+    val nodeType: String = "theory" // String type from Supabase
 )
 
 /**

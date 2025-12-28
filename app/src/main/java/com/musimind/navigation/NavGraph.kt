@@ -157,6 +157,23 @@ fun MusiMindNavGraph(
         composable(Screen.OnboardingTutorial.route) {
             OnboardingTutorialScreen(
                 onComplete = {
+                    // After tutorial, go to placement test
+                    navController.navigate(Screen.PlacementTest.route)
+                }
+            )
+        }
+        
+        // Placement Test - Adaptive assessment to determine starting level
+        composable(Screen.PlacementTest.route) {
+            com.musimind.presentation.onboarding.PlacementTestScreen(
+                onComplete = { level ->
+                    // Save level and navigate to home
+                    navController.navigate(Screen.Home.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onSkip = {
+                    // Skip test and go to home with default level
                     navController.navigate(Screen.Home.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
@@ -225,6 +242,23 @@ fun MusiMindNavGraph(
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
                 }
+            )
+        }
+        
+        // Theory Lesson Screen
+        composable(
+            route = Screen.TheoryLesson.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("lessonId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val lessonId = backStackEntry.arguments?.getString("lessonId") ?: ""
+            com.musimind.presentation.theory.TheoryLessonScreen(
+                lessonId = lessonId,
+                onBack = { navController.popBackStack() },
+                onComplete = { navController.popBackStack() }
             )
         }
         
@@ -299,6 +333,130 @@ fun MusiMindNavGraph(
                 onComplete = { score, total ->
                     navController.popBackStack()
                 }
+            )
+        }
+        
+        // =====================================================
+        // MINI-GAMES
+        // =====================================================
+        
+        // Games Hub - Lista de todos os jogos
+        composable(Screen.GamesHub.route) {
+            com.musimind.presentation.games.GamesHubScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onGameSelect = { gameName ->
+                    when (gameName) {
+                        "note_catcher" -> navController.navigate(Screen.NoteCatcher.route)
+                        "rhythm_tap" -> navController.navigate(Screen.RhythmTap.route)
+                        "melody_memory" -> navController.navigate(Screen.MelodyMemory.route)
+                        "interval_hero" -> navController.navigate(Screen.IntervalHero.route)
+                        "scale_puzzle" -> navController.navigate(Screen.ScalePuzzle.route)
+                        "chord_match" -> navController.navigate(Screen.ChordMatch.route)
+                        "key_shooter" -> navController.navigate(Screen.KeyShooter.route)
+                        "tempo_run" -> navController.navigate(Screen.TempoRun.route)
+                        "solfege_sing" -> navController.navigate(Screen.SolfegeSing.route)
+                        "chord_builder" -> navController.navigate(Screen.ChordBuilder.route)
+                        "progression_quest" -> navController.navigate(Screen.ProgressionQuest.route)
+                        "daily_challenge" -> navController.navigate(Screen.DailyChallenge.route)
+                    }
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Note Catcher Game
+        composable(Screen.NoteCatcher.route) {
+            com.musimind.presentation.games.NoteCatcherScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Rhythm Tap Game
+        composable(Screen.RhythmTap.route) {
+            com.musimind.presentation.games.RhythmTapScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Melody Memory Game
+        composable(Screen.MelodyMemory.route) {
+            com.musimind.presentation.games.MelodyMemoryScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Interval Hero Game
+        composable(Screen.IntervalHero.route) {
+            com.musimind.presentation.games.IntervalHeroScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Scale Puzzle Game
+        composable(Screen.ScalePuzzle.route) {
+            com.musimind.presentation.games.ScalePuzzleScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Solfege Sing Game
+        composable(Screen.SolfegeSing.route) {
+            com.musimind.presentation.games.SolfegeSingScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Chord Match Game
+        composable(Screen.ChordMatch.route) {
+            com.musimind.presentation.games.ChordMatchScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Key Shooter Game
+        composable(Screen.KeyShooter.route) {
+            com.musimind.presentation.games.KeyShooterScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Tempo Run Game
+        composable(Screen.TempoRun.route) {
+            com.musimind.presentation.games.TempoRunScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Chord Builder Game
+        composable(Screen.ChordBuilder.route) {
+            com.musimind.presentation.games.ChordBuilderScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Progression Quest Game
+        composable(Screen.ProgressionQuest.route) {
+            com.musimind.presentation.games.ProgressionQuestScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Daily Challenge
+        composable(Screen.DailyChallenge.route) {
+            com.musimind.presentation.games.DailyChallengeScreen(
+                userId = "", // TODO: pegar do AuthManager
+                onBack = { navController.popBackStack() }
             )
         }
     }

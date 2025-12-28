@@ -142,9 +142,17 @@ dependencies {
 
     // Image Loading
     implementation(libs.coil.compose)
+    implementation(libs.coil.svg)
 
     // DataStore
     implementation(libs.datastore.preferences)
+    
+    // WorkManager (for scheduled notifications)
+    implementation(libs.work.runtime.ktx)
+    
+    // Firebase Messaging (for push notifications - optional)
+    // Uncomment when Firebase is configured
+    // implementation(libs.firebase.messaging)
 
     // Audio Processing - SoundFont parsing is done in pure Kotlin (SoundFontPlayer.kt)
 

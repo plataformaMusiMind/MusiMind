@@ -8,6 +8,29 @@ package com.musimind.music.notation.smufl
  * 
  * These codepoints are in the Private Use Area (PUA) starting at U+E000
  */
+/**
+ * SMuFL (Standard Music Font Layout) Glyph Mappings - COMPLETE EDITION
+ * 
+ * Comprehensive mapping of Unicode codepoints for SMuFL-compliant fonts like Bravura.
+ * Reference: https://w3c.github.io/smufl/latest/
+ * 
+ * These codepoints are in the Private Use Area (PUA) starting at U+E000
+ * 
+ * This file contains ALL major SMuFL categories for professional music notation:
+ * - Clefs, Noteheads, Flags, Rests
+ * - Accidentals (including microtonal)
+ * - Time Signatures
+ * - Articulations, Dynamics, Ornaments
+ * - Holds, Pauses, Fermatas
+ * - Repeats, Barlines
+ * - Octave Lines, Tuplets
+ * - Pedaling, String Techniques
+ * - Beams, Ties, Slurs
+ * - Staff Brackets
+ * - Figured Bass, Chord Symbols
+ * - Expression Marks
+ * - And much more...
+ */
 object SMuFLGlyphs {
 
     // ============================================
@@ -28,9 +51,22 @@ object SMuFLGlyphs {
         
         const val ALTO = '\uE05C'             // Clave de Dó (Alto)
         const val TENOR = '\uE05C'            // Clave de Dó (Tenor - same glyph, different position)
+        const val SOPRANO = '\uE05C'          // Clave de Dó (Soprano)
+        const val MEZZO_SOPRANO = '\uE05C'    // Clave de Dó (Mezzo-soprano)
+        const val BARITONE = '\uE05C'         // Clave de Dó (Baritone)
         
         const val PERCUSSION = '\uE069'       // Clave de Percussão
+        const val PERCUSSION_2 = '\uE06A'     // Clave de Percussão 2
+        const val SEMIPITCHED_PERCUSSION = '\uE06B' // Semitonal percussion
+        
         const val TAB = '\uE06D'              // Clave de Tablatura
+        const val TAB_4_STRING = '\uE06E'     // Tablatura 4 cordas
+        const val TAB_6_STRING = '\uE06F'     // Tablatura 6 cordas
+        
+        // Clef change versions (smaller)
+        const val TREBLE_CHANGE = '\uE07A'
+        const val BASS_CHANGE = '\uE07B'
+        const val ALTO_CHANGE = '\uE07C'
     }
 
     // ============================================
@@ -378,6 +414,239 @@ object SMuFLGlyphs {
     }
 
     // ============================================
+    // TUPLETS (U+E1F0 - U+E1FF)
+    // ============================================
+    object Tuplets {
+        const val COLON = '\uE88A'              // Tuplet colon
+        const val NUM_0 = '\uE880'
+        const val NUM_1 = '\uE881'
+        const val NUM_2 = '\uE882'
+        const val NUM_3 = '\uE883'
+        const val NUM_4 = '\uE884'
+        const val NUM_5 = '\uE885'
+        const val NUM_6 = '\uE886'
+        const val NUM_7 = '\uE887'
+        const val NUM_8 = '\uE888'
+        const val NUM_9 = '\uE889'
+        
+        fun getNumeral(digit: Int): Char = when (digit) {
+            0 -> NUM_0
+            1 -> NUM_1
+            2 -> NUM_2
+            3 -> NUM_3
+            4 -> NUM_4
+            5 -> NUM_5
+            6 -> NUM_6
+            7 -> NUM_7
+            8 -> NUM_8
+            9 -> NUM_9
+            else -> NUM_0
+        }
+    }
+
+    // ============================================
+    // PEDALING (U+E650 - U+E67F)
+    // ============================================
+    object Pedaling {
+        const val PEDAL_MARK = '\uE650'         // Ped.
+        const val PEDAL_P = '\uE651'            // P mark
+        const val PEDAL_E = '\uE652'            // E mark
+        const val PEDAL_D = '\uE653'            // D mark
+        const val PEDAL_DOT = '\uE654'          // Pedal dot
+        const val PEDAL_UP = '\uE655'           // Pedal up (release)
+        const val PEDAL_SOSTENUTO = '\uE659'    // Sostenuto pedal
+        const val HALF_PEDAL = '\uE656'         // Half pedal
+        const val PEDAL_HEEL_1 = '\uE661'       // Heel 1
+        const val PEDAL_HEEL_2 = '\uE662'       // Heel 2
+        const val PEDAL_TOE_1 = '\uE663'        // Toe 1
+        const val PEDAL_TOE_2 = '\uE664'        // Toe 2
+        
+        // Harp pedals
+        const val HARP_PEDAL_RAISED = '\uE680'
+        const val HARP_PEDAL_CENTER = '\uE681'
+        const val HARP_PEDAL_LOWERED = '\uE682'
+        const val HARP_PEDAL_DIVIDER = '\uE683'
+    }
+
+    // ============================================
+    // STRING TECHNIQUES (U+E610 - U+E62F)
+    // ============================================
+    object StringTechniques {
+        const val DOWN_BOW = '\uE610'           // Arcada para baixo
+        const val UP_BOW = '\uE612'             // Arcada para cima
+        const val HARMONIC = '\uE614'           // Harmônico
+        const val HALF_HARMONIC = '\uE615'
+        
+        // Fingering
+        const val THUMB = '\uE624'              // Polegar (violoncelo)
+        const val OPEN_STRING = '\uE5F2'        // Corda solta
+        const val MUTE_ON = '\uE638'            // Con sordino
+        const val MUTE_OFF = '\uE639'           // Senza sordino
+        
+        // Pizzicato
+        const val SNAP_PIZZ = '\uE631'          // Pizzicato à la Bartók
+        const val PIZZICATO = '\uE630'          // Pizzicato
+        const val LEFT_HAND_PIZZ = '\uE633'     // Pizz. mão esquerda
+        
+        // Tremolo
+        const val TREMOLO_DIVISI = '\uE621'
+        const val BOWING_FLAUTANDO = '\uE620'   // Sul tasto / flautando
+        const val BOWING_PONTICELLO = '\uE622' // Sul ponticello
+        
+        // Guitar/String effects
+        const val ARPEGGIO_UP = '\uE634'
+        const val ARPEGGIO_DOWN = '\uE635'
+        const val STRUM_UP = '\uE636'
+        const val STRUM_DOWN = '\uE637'
+    }
+
+    // ============================================
+    // VOLTA BRACKETS / ENDINGS (U+E040)
+    // ============================================
+    object VoltaBrackets {
+        // These are typically drawn with numbers, not glyphs
+        const val BRACKET_TOP = '\uE500'
+        const val BRACKET_BOTTOM = '\uE501'
+        
+        // Numbers for volta brackets (use regular time sig numbers)
+        const val NUM_1 = '\uE081'
+        const val NUM_2 = '\uE082'
+        const val NUM_3 = '\uE083'
+    }
+
+    // ============================================
+    // CHORD SYMBOLS (U+E870 - U+E87F)
+    // ============================================
+    object ChordSymbols {
+        const val DIMINISHED = '\uE870'         // ° (diminuto)
+        const val HALF_DIMINISHED = '\uE871'    // ø (meio-diminuto)
+        const val AUGMENTED = '\uE872'          // + (aumentado)
+        const val MAJOR_SEVENTH = '\uE873'      // Δ (sétima maior)
+        const val MINOR = '\uE874'              // - (menor)
+        
+        // Extensions
+        const val PARENS_LEFT = '\uE876'
+        const val PARENS_RIGHT = '\uE877'
+        const val BRACKET_LEFT = '\uE878'
+        const val BRACKET_RIGHT = '\uE879'
+        
+        // Bass
+        const val BASS_SLASH = '\uE87A'         // Slash for bass notes
+    }
+
+    // ============================================
+    // EXPRESSION TEXT (U+E540 - U+E55F)
+    // Standard music expression words
+    // ============================================
+    object ExpressionText {
+        // Note: These are text-based, typically use BravuraText font
+        // These glyphs are for special symbols that accompany text
+        const val NIENTE_CIRCLE = '\uE526'      // n (niente)
+        const val SUBITO = '\uE53C'             // s (subito)
+    }
+
+    // ============================================
+    // ARROWS AND ARROWHEADS (U+EB60 - U+EB8F)
+    // ============================================
+    object Arrows {
+        const val ARROW_BLACK_UP = '\uEB60'
+        const val ARROW_BLACK_DOWN = '\uEB62'
+        const val ARROW_BLACK_LEFT = '\uEB64'
+        const val ARROW_BLACK_RIGHT = '\uEB66'
+        const val ARROW_BLACK_UP_LEFT = '\uEB68'
+        const val ARROW_BLACK_UP_RIGHT = '\uEB6A'
+        const val ARROW_BLACK_DOWN_LEFT = '\uEB6C'
+        const val ARROW_BLACK_DOWN_RIGHT = '\uEB6E'
+        
+        const val ARROW_WHITE_UP = '\uEB61'
+        const val ARROW_WHITE_DOWN = '\uEB63'
+        const val ARROW_WHITE_LEFT = '\uEB65'
+        const val ARROW_WHITE_RIGHT = '\uEB67'
+        
+        // Open arrowheads
+        const val ARROWHEAD_OPEN_UP = '\uEB70'
+        const val ARROWHEAD_OPEN_DOWN = '\uEB71'
+        const val ARROWHEAD_OPEN_LEFT = '\uEB72'
+        const val ARROWHEAD_OPEN_RIGHT = '\uEB73'
+    }
+
+    // ============================================
+    // KEYBOARD TECHNIQUES (U+E6A0 - U+E6BF)
+    // ============================================
+    object KeyboardTechniques {
+        // Pluck inside piano
+        const val PLUCK_INSIDE = '\uE6A0'
+        
+        // Hand positions
+        const val LEFT_HAND = '\uE6B0'          // L.H.
+        const val RIGHT_HAND = '\uE6B1'         // R.H.
+        
+        // Pedal directions
+        const val PEDAL_HEEL = '\uE6B2'
+        const val PEDAL_TOE = '\uE6B3'
+        const val PEDAL_HEEL_OR_TOE = '\uE6B4'
+    }
+
+    // ============================================
+    // WIND/BRASS TECHNIQUES (U+E5D0 - U+E5EF)
+    // ============================================
+    object WindTechniques {
+        const val DOUBLE_TONGUE = '\uE5D0'      // Double tonguing
+        const val TRIPLE_TONGUE = '\uE5D1'      // Triple tonguing
+        const val STOPPED = '\uE5E4'            // Stopped (+ horn)
+        const val OPEN = '\uE5E5'               // Open (o horn)
+        const val MUTE_CLOSED = '\uE5E6'        // Mute closed
+        const val MUTE_HALF_OPEN = '\uE5E7'     // Mute half-open
+        const val MUTE_OPEN = '\uE5E8'          // Mute open
+        const val FLIP = '\uE5E9'               // Flip
+        const val SMEAR = '\uE5EA'              // Smear/bend
+        const val LIFT = '\uE5EB'               // Lift
+        const val DOIT = '\uE5EC'               // Doit
+        const val FALL = '\uE5ED'               // Fall
+        const val BEND = '\uE5EE'               // Bend
+        const val MULTIPHONIC = '\uE5F0'        // Multiphonic
+        const val HARMONIC_MUTE = '\uE5F1'      // Harmonic mute
+    }
+
+    // ============================================
+    // ANALYTICS (Music Analysis Symbols)
+    // ============================================
+    object Analytics {
+        const val HAUPTSTIMME = '\uE860'        // Principal voice
+        const val NEBENSTIMME = '\uE861'        // Secondary voice
+        const val HAUPTSTIMME_END = '\uE862'
+        const val NEBENSTIMME_END = '\uE863'
+        
+        // Function theory (Roman numerals are typically text)
+        const val CHOICE_BRACKET_LEFT = '\uE864'
+        const val CHOICE_BRACKET_RIGHT = '\uE865'
+    }
+
+    // ============================================
+    // PICTOGRAMS - Percussion (U+E710 - U+E7FF)
+    // ============================================
+    object PercussionPictograms {
+        // Beaters
+        const val SOFT_MALLET = '\uE770'
+        const val MEDIUM_MALLET = '\uE771'
+        const val HARD_MALLET = '\uE772'
+        const val WOODEN_MALLET = '\uE773'
+        const val BASS_DRUM_MALLET = '\uE774'
+        const val TIMPANI_MALLET = '\uE775'
+        
+        // Sticks
+        const val DRUM_STICK = '\uE780'
+        const val SNARE_STICK = '\uE781'
+        const val BRUSHES = '\uE782'
+        const val RODS = '\uE783'
+        
+        // Other beaters
+        const val HANDS = '\uE784'
+        const val FINGERS = '\uE785'
+        const val FINGERNAILS = '\uE786'
+    }
+
+    // ============================================
     // HELPER FUNCTIONS
     // ============================================
 
@@ -406,12 +675,61 @@ object SMuFLGlyphs {
 
     /**
      * Get flag glyph based on duration and stem direction
+     * 
+     * Duration mapping:
+     * - >= 1.0 beats (quarter and longer): no flag
+     * - >= 0.5 beats (eighth/colcheia): 1 flag
+     * - >= 0.25 beats (sixteenth/semicolcheia): 2 flags
+     * - >= 0.125 beats (thirty-second/fusa): 3 flags
+     * - < 0.125 beats (sixty-fourth/semifusa): 4 flags
      */
     fun getFlagForDuration(beats: Float, stemUp: Boolean): Char? = when {
-        beats >= 0.5f -> null // No flag for quarter and longer
-        beats >= 0.25f -> if (stemUp) Flags.EIGHTH_UP else Flags.EIGHTH_DOWN
-        beats >= 0.125f -> if (stemUp) Flags.SIXTEENTH_UP else Flags.SIXTEENTH_DOWN
-        beats >= 0.0625f -> if (stemUp) Flags.THIRTY_SECOND_UP else Flags.THIRTY_SECOND_DOWN
-        else -> if (stemUp) Flags.SIXTY_FOURTH_UP else Flags.SIXTY_FOURTH_DOWN
+        beats >= 1f -> null // No flag for quarter note and longer
+        beats >= 0.5f -> if (stemUp) Flags.EIGHTH_UP else Flags.EIGHTH_DOWN           // Colcheia = 1 flag
+        beats >= 0.25f -> if (stemUp) Flags.SIXTEENTH_UP else Flags.SIXTEENTH_DOWN     // Semicolcheia = 2 flags
+        beats >= 0.125f -> if (stemUp) Flags.THIRTY_SECOND_UP else Flags.THIRTY_SECOND_DOWN // Fusa = 3 flags
+        else -> if (stemUp) Flags.SIXTY_FOURTH_UP else Flags.SIXTY_FOURTH_DOWN         // Semifusa = 4 flags
+    }
+
+    // ============================================
+    // INDIVIDUAL NOTES (Metronome Marks)
+    // ============================================
+    object MetronomeMarks {
+        const val WHOLE = '\uE1D2'
+        const val HALF = '\uE1D3'
+        const val QUARTER = '\uE1D5'
+        const val EIGHTH = '\uE1D7'
+        const val SIXTEENTH = '\uE1D9'
+        const val THIRTY_SECOND = '\uE1DB'
+        const val SIXTY_FOURTH = '\uE1DD'
+    }
+
+    // ============================================
+    // STANDARD UNICODE MUSICAL SYMBOLS (U+1D100 - U+1D1FF)
+    // https://symbl.cc/pt/unicode/blocks/musical-symbols/
+    // ============================================
+    object StandardMusicalSymbols {
+        // Notes
+        const val NOTE_WHOLE = "\uD834\uDD5D"       // 𝅝 (U+1D15D)
+        const val NOTE_HALF = "\uD834\uDD5E"        // 𝅗𝅥 (U+1D15E)
+        const val NOTE_QUARTER = "\uD834\uDD5F"     // 𝅘𝅥 (U+1D15F)
+        const val NOTE_EIGHTH = "\uD834\uDD60"      // 𝅘𝅥𝅮 (U+1D160)
+        const val NOTE_SIXTEENTH = "\uD834\uDD61"   // 𝅘𝅥𝅯 (U+1D161)
+        const val NOTE_THIRTY_SECOND = "\uD834\uDD62" // 𝅘𝅥𝅰 (U+1D162)
+        const val NOTE_SIXTY_FOURTH = "\uD834\uDD63" // 𝅘𝅥𝅱 (U+1D163)
+
+        // Rests
+        const val REST_WHOLE = "\uD834\uDD3B"       // 𝄻 (U+1D13B)
+        const val REST_HALF = "\uD834\uDD3C"        // 𝄼 (U+1D13C)
+        const val REST_QUARTER = "\uD834\uDD3D"     // 𝄽 (U+1D13D)
+        const val REST_EIGHTH = "\uD834\uDD3E"      // 𝄾 (U+1D13E)
+        const val REST_SIXTEENTH = "\uD834\uDD3F"   // 𝄿 (U+1D13F)
+        const val REST_THIRTY_SECOND = "\uD834\uDD40" // 𝅀 (U+1D140)
+        const val REST_SIXTY_FOURTH = "\uD834\uDD41"  // 𝅁 (U+1D141)
+
+        // Accidentals
+        const val FLAT = "\u266D"                   // ♭ (U+266D)
+        const val NATURAL = "\u266E"                // ♮ (U+266E)
+        const val SHARP = "\u266F"                  // ♯ (U+266F)
     }
 }

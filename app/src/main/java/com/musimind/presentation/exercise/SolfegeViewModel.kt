@@ -193,11 +193,16 @@ class SolfegeViewModel @Inject constructor(
     private fun pitchToSolfegeName(pitch: Pitch): String {
         val baseName = when (pitch.note) {
             NoteName.C -> "Dó"
+            NoteName.C_SHARP -> "Dó"
             NoteName.D -> "Ré"
+            NoteName.D_SHARP -> "Ré"
             NoteName.E -> "Mi"
             NoteName.F -> "Fá"
+            NoteName.F_SHARP -> "Fá"
             NoteName.G -> "Sol"
+            NoteName.G_SHARP -> "Sol"
             NoteName.A -> "Lá"
+            NoteName.A_SHARP -> "Lá"
             NoteName.B -> "Si"
         }
         val alteration = when (pitch.alteration) {

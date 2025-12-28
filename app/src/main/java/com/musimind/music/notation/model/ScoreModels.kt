@@ -98,22 +98,43 @@ data class Pitch(
     val midiPitch: Int get() = (octave + 1) * 12 + note.semitone + alteration
     
     /**
+     * Convert note name to diatonic position (0-6 for C-B)
+     * This ignores chromatic alterations for staff position calculation
+     */
+    private fun diatonicPosition(): Int = when (note) {
+        NoteName.C, NoteName.C_SHARP -> 0
+        NoteName.D, NoteName.D_SHARP -> 1
+        NoteName.E -> 2
+        NoteName.F, NoteName.F_SHARP -> 3
+        NoteName.G, NoteName.G_SHARP -> 4
+        NoteName.A, NoteName.A_SHARP -> 5
+        NoteName.B -> 6
+    }
+    
+    /**
      * Position on staff relative to Middle C (0 = C4)
+     * 
+     * Staff position determines vertical placement on the staff:
+     * - Position 0 = first ledger line below staff (C4 in treble clef)
+     * - Position 2 = first staff line (E4 in treble clef)
+     * - Position 4 = second staff line (G4 in treble clef)
+     * - etc.
      */
     fun staffPosition(clef: ClefType): Int {
-        val basePosition = (octave - 4) * 7 + note.ordinal
+        // Use diatonic position (0-6) instead of chromatic ordinal (0-11)
+        val basePosition = (octave - 4) * 7 + diatonicPosition()
         return when (clef) {
-            ClefType.TREBLE -> basePosition - 1 // B4 is on middle line
-            ClefType.BASS -> basePosition + 11 // D3 is on middle line
-            ClefType.ALTO -> basePosition + 5 // C4 is on middle line
-            ClefType.TENOR -> basePosition + 7
-            ClefType.PERCUSSION -> 0
+            ClefType.TREBLE -> basePosition       // C4 = position 0 (first ledger line below)
+            ClefType.BASS -> basePosition + 12    // C4 = position 12 (above staff in bass clef)
+            ClefType.ALTO -> basePosition + 6     // C4 = position 6 (middle line)
+            ClefType.TENOR -> basePosition + 8
+            ClefType.PERCUSSION -> 4              // Center of staff
         }
     }
 }
 
 enum class NoteName(val semitone: Int) {
-    C(0), D(2), E(4), F(5), G(7), A(9), B(11)
+    C(0), C_SHARP(1), D(2), D_SHARP(3), E(4), F(5), F_SHARP(6), G(7), G_SHARP(8), A(9), A_SHARP(10), B(11)
 }
 
 enum class ClefType(val glyph: Char, val staffLine: Int) {
@@ -213,13 +234,29 @@ enum class FeedbackState {
  */
 object Duration {
     const val DOUBLE_WHOLE = 8f
-    const val WHOLE = 4f
-    const val HALF = 2f
-    const val QUARTER = 1f
-    const val EIGHTH = 0.5f
-    const val SIXTEENTH = 0.25f
-    const val THIRTY_SECOND = 0.125f
-    const val SIXTY_FOURTH = 0.0625f
+    const val WHOLE = 4f           // Semibreve
+    const val HALF = 2f            // Mínima
+    const val QUARTER = 1f         // Semínima
+    const val EIGHTH = 0.5f        // Colcheia
+    const val SIXTEENTH = 0.25f    // Semicolcheia
+    const val THIRTY_SECOND = 0.125f  // Fusa
+    const val SIXTY_FOURTH = 0.0625f  // Semifusa
+    
+    /**
+     * Calculate duration with augmentation dots
+     * Formula: base + base/2 + base/4 + ... (for each dot)
+     * 1 dot = base * 1.5
+     * 2 dots = base * 1.75
+     */
+    fun getDottedDuration(base: Float, dots: Int = 1): Float {
+        var total = base
+        var add = base / 2f
+        repeat(dots) {
+            total += add
+            add /= 2f
+        }
+        return total
+    }
     
     fun getNoteheadGlyph(beats: Float): Char = when {
         beats >= 4f -> SMuFLGlyphs.Noteheads.WHOLE
@@ -231,11 +268,21 @@ object Duration {
     
     fun needsFlag(beats: Float): Boolean = beats < 1f
     
+    /**
+     * Get number of flags/beams for a duration
+     * Colcheia = 1, Semicolcheia = 2, Fusa = 3, Semifusa = 4
+     */
     fun getNumberOfFlags(beats: Float): Int = when {
-        beats >= 0.5f -> 1
-        beats >= 0.25f -> 2
-        beats >= 0.125f -> 3
-        beats >= 0.0625f -> 4
+        beats >= 1f -> 0      // Quarter and longer have no flags
+        beats >= 0.5f -> 1    // Eighth = 1 flag
+        beats >= 0.25f -> 2   // Sixteenth = 2 flags
+        beats >= 0.125f -> 3  // 32nd = 3 flags
+        beats >= 0.0625f -> 4 // 64th = 4 flags
         else -> 5
     }
+    
+    /**
+     * Check if a duration should be beamed (grouped with adjacent notes)
+     */
+    fun shouldBeam(beats: Float): Boolean = beats < 1f
 }

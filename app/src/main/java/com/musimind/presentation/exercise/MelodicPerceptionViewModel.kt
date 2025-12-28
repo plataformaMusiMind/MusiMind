@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.musimind.data.repository.ExerciseRepository
+import com.musimind.domain.gamification.ExerciseLifeResult
+import com.musimind.domain.gamification.LivesManager
+import com.musimind.domain.gamification.RewardsManager
 import com.musimind.domain.model.SolfegeNote
 import com.musimind.music.audio.midi.MidiPlayer
 import com.musimind.music.notation.model.*
@@ -18,16 +21,25 @@ import javax.inject.Inject
  * ViewModel for Melodic Perception exercise
  * 
  * Users input notes they hear and the system verifies correctness.
+ * Integrated with Lives system - lose life when accuracy < 75%
  */
 @HiltViewModel
 class MelodicPerceptionViewModel @Inject constructor(
     private val midiPlayer: MidiPlayer,
     private val exerciseRepository: ExerciseRepository,
+    private val livesManager: LivesManager,
+    private val rewardsManager: RewardsManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(MelodicPerceptionState())
     val state: StateFlow<MelodicPerceptionState> = _state.asStateFlow()
+    
+    // Lives state exposed for UI
+    val livesState = livesManager.livesState
+    
+    // Track if this is first exercise of day for bonus
+    private var isFirstExerciseOfDay = false
     
     /**
      * Load exercise from repository
@@ -242,7 +254,8 @@ class MelodicPerceptionViewModel @Inject constructor(
     }
     
     /**
-     * Add a note based on current selection
+     * Add a note based on current selection with automatic bar break.
+     * If the note exceeds the measure, it's split into tied notes.
      */
     fun addNote() {
         val currentState = _state.value
@@ -257,51 +270,178 @@ class MelodicPerceptionViewModel @Inject constructor(
         }
         
         val pitch = Pitch(noteName, currentState.selectedOctave, alteration)
-        val newNote = Note(
-            id = "user_${currentState.userNotes.size}",
-            durationBeats = currentState.selectedDuration,
-            pitch = pitch,
-            accidental = currentState.selectedAccidental,
-            beatNumber = calculateUserBeatNumber(currentState.userNotes, currentState.selectedDuration)
-        )
+        val duration = currentState.selectedDuration
         
-        _state.update {
-            it.copy(
-                userNotes = it.userNotes + newNote,
-                currentNoteIndex = it.userNotes.size,
-                showFeedback = false,
-                feedbackMessage = null
+        // Calculate total beats used so far
+        val totalBeatsUsed = currentState.userNotes.sumOf { it.durationBeats.toDouble() }.toFloat()
+        
+        // Maximum beats allowed (4 measures in 4/4 = 16 beats)
+        val maxBeats = 16f
+        
+        // Check if adding this note would exceed the limit
+        if (totalBeatsUsed + duration > maxBeats + 0.001f) {
+            _state.update {
+                it.copy(
+                    feedbackMessage = "Limite de compassos atingido!"
+                )
+            }
+            return
+        }
+        
+        // Calculate position within current measure (0-based: 0.0 to 3.999...)
+        val beatsPerMeasure = 4f // 4/4 time signature
+        val positionInMeasure = totalBeatsUsed % beatsPerMeasure
+        val remainingInMeasure = beatsPerMeasure - positionInMeasure
+        
+        // Beat number for display (1-based)
+        val beatNumber = positionInMeasure + 1f
+        
+        // Check if note fits in current measure
+        if (duration <= remainingInMeasure + 0.001f) {
+            // Note fits - add normally
+            val newNote = Note(
+                id = "user_${currentState.userNotes.size}",
+                durationBeats = duration,
+                pitch = pitch,
+                accidental = currentState.selectedAccidental,
+                beatNumber = beatNumber
             )
+            
+            _state.update {
+                it.copy(
+                    userNotes = it.userNotes + newNote,
+                    currentNoteIndex = it.userNotes.size,
+                    showFeedback = false,
+                    feedbackMessage = null
+                )
+            }
+        } else if (remainingInMeasure >= 0.001f) {
+            // Note exceeds measure but there's space - split with tie
+            val firstPartDuration = remainingInMeasure
+            val secondPartDuration = duration - remainingInMeasure
+            
+            val firstNote = Note(
+                id = "user_${currentState.userNotes.size}",
+                durationBeats = firstPartDuration,
+                pitch = pitch,
+                accidental = currentState.selectedAccidental,
+                tied = true,  // First part is tied to next
+                beatNumber = beatNumber
+            )
+            
+            val secondNote = Note(
+                id = "user_${currentState.userNotes.size + 1}",
+                durationBeats = secondPartDuration,
+                pitch = pitch,
+                accidental = null,  // Don't repeat accidental after tie
+                tied = false,
+                beatNumber = 1f  // Start of new measure
+            )
+            
+            _state.update {
+                it.copy(
+                    userNotes = it.userNotes + firstNote + secondNote,
+                    currentNoteIndex = it.userNotes.size + 1,
+                    showFeedback = false,
+                    feedbackMessage = "Nota dividida entre compassos (ligadura)"
+                )
+            }
+        } else {
+            // Measure is exactly full - add to next measure
+            val newNote = Note(
+                id = "user_${currentState.userNotes.size}",
+                durationBeats = duration,
+                pitch = pitch,
+                accidental = currentState.selectedAccidental,
+                beatNumber = 1f // Start of new measure
+            )
+            
+            _state.update {
+                it.copy(
+                    userNotes = it.userNotes + newNote,
+                    currentNoteIndex = it.userNotes.size,
+                    showFeedback = false,
+                    feedbackMessage = null
+                )
+            }
         }
-    }
-    
-    private fun calculateUserBeatNumber(notes: List<MusicElement>, newDuration: Float): Float {
-        var beat = 1f
-        for (note in notes) {
-            beat += note.durationBeats
-            while (beat > 4f) beat -= 4f
-        }
-        return beat
     }
     
     /**
-     * Add a rest
+     * Calculate current beat position within the measure (0-based: 0.0 to 3.999...)
+     */
+    private fun calculateCurrentBeatInMeasure(notes: List<MusicElement>): Float {
+        val totalBeats = notes.sumOf { it.durationBeats.toDouble() }.toFloat()
+        return totalBeats % 4f
+    }
+    
+    private fun calculateUserBeatNumber(notes: List<MusicElement>, newDuration: Float): Float {
+        val totalBeats = notes.sumOf { it.durationBeats.toDouble() }.toFloat()
+        return (totalBeats % 4f) + 1f // 1-based for display
+    }
+    
+    /**
+     * Add a rest with automatic bar break
      */
     fun addRest() {
         val currentState = _state.value
+        val duration = currentState.selectedDuration
         
-        val newRest = Rest(
-            id = "user_rest_${currentState.userNotes.size}",
-            durationBeats = currentState.selectedDuration
-        )
+        // Calculate total beats used so far
+        val totalBeatsUsed = currentState.userNotes.sumOf { it.durationBeats.toDouble() }.toFloat()
         
-        _state.update {
-            it.copy(
-                userNotes = it.userNotes + newRest,
-                currentNoteIndex = it.userNotes.size,
-                showFeedback = false,
-                feedbackMessage = null
+        // Maximum beats allowed (4 measures in 4/4 = 16 beats)
+        val maxBeats = 16f
+        
+        // Check if adding this rest would exceed the limit
+        if (totalBeatsUsed + duration > maxBeats + 0.001f) {
+            _state.update {
+                it.copy(
+                    feedbackMessage = "Limite de compassos atingido!"
+                )
+            }
+            return
+        }
+        
+        // Calculate position within current measure (0-based)
+        val beatsPerMeasure = 4f
+        val positionInMeasure = totalBeatsUsed % beatsPerMeasure
+        val remainingInMeasure = beatsPerMeasure - positionInMeasure
+        
+        if (duration <= remainingInMeasure + 0.001f) {
+            // Rest fits
+            val newRest = Rest(
+                id = "user_rest_${currentState.userNotes.size}",
+                durationBeats = duration
             )
+            
+            _state.update {
+                it.copy(
+                    userNotes = it.userNotes + newRest,
+                    currentNoteIndex = it.userNotes.size,
+                    showFeedback = false,
+                    feedbackMessage = null
+                )
+            }
+        } else {
+            // Split rest across bar line
+            val firstRest = Rest(
+                id = "user_rest_${currentState.userNotes.size}",
+                durationBeats = remainingInMeasure
+            )
+            val secondRest = Rest(
+                id = "user_rest_${currentState.userNotes.size + 1}",
+                durationBeats = duration - remainingInMeasure
+            )
+            
+            _state.update {
+                it.copy(
+                    userNotes = it.userNotes + firstRest + secondRest,
+                    currentNoteIndex = it.userNotes.size + 1,
+                    showFeedback = false,
+                    feedbackMessage = null
+                )
+            }
         }
     }
     
@@ -323,6 +463,7 @@ class MelodicPerceptionViewModel @Inject constructor(
     
     /**
      * Verify user input against target
+     * Integrates with Lives and Rewards systems
      */
     fun verify() {
         val currentState = _state.value
@@ -355,50 +496,79 @@ class MelodicPerceptionViewModel @Inject constructor(
             if (isCorrect) correctCount++
         }
         
-        // Check for missing notes
-        if (userNotes.size < targetNotes.size) {
-            val missingCount = targetNotes.size - userNotes.size
-            _state.update {
-                it.copy(
-                    feedbackResults = feedbackResults,
-                    showFeedback = true,
-                    correctCount = correctCount,
-                    allCorrect = false,
-                    feedbackMessage = "Faltam $missingCount nota(s). Você acertou $correctCount de ${targetNotes.size}."
-                )
+        // Calculate accuracy
+        val accuracy = if (targetNotes.isNotEmpty()) {
+            (correctCount.toFloat() / targetNotes.size) * 100f
+        } else 100f
+        
+        val allCorrect = correctCount == targetNotes.size && userNotes.size == targetNotes.size
+        
+        // Process result with Lives and Rewards system
+        viewModelScope.launch {
+            // Process life loss if accuracy < 75%
+            val lossResult = livesManager.processExerciseResult(
+                exerciseId = currentState.exerciseId,
+                accuracy = accuracy,
+                wasCompleted = true
+            )
+            
+            // Determine feedback message
+            val baseMessage = when {
+                userNotes.size < targetNotes.size -> {
+                    val missingCount = targetNotes.size - userNotes.size
+                    "Faltam $missingCount nota(s). Você acertou $correctCount de ${targetNotes.size}."
+                }
+                userNotes.size > targetNotes.size -> {
+                    val extraCount = userNotes.size - targetNotes.size
+                    "Você adicionou $extraCount nota(s) a mais. Acertou $correctCount de ${targetNotes.size}."
+                }
+                allCorrect -> "Parabéns! Todas as notas corretas! 🎉"
+                else -> "Você acertou $correctCount de ${targetNotes.size}."
             }
-        } else if (userNotes.size > targetNotes.size) {
-            val extraCount = userNotes.size - targetNotes.size
-            _state.update {
-                it.copy(
-                    feedbackResults = feedbackResults,
-                    showFeedback = true,
-                    correctCount = correctCount,
-                    allCorrect = false,
-                    feedbackMessage = "Você adicionou $extraCount nota(s) a mais. Acertou $correctCount de ${targetNotes.size}."
-                )
+            
+            // Add life status to message
+            val lifeMessage = when (lossResult) {
+                is ExerciseLifeResult.LifeLost -> "\n❤️ -1 vida (${lossResult.remainingLives} restantes)"
+                is ExerciseLifeResult.LifeLostAndOutOfLives -> "\n💔 Você ficou sem vidas!"
+                is ExerciseLifeResult.AlreadyOutOfLives -> "\n💔 Você ficou sem vidas!"
+                is ExerciseLifeResult.Passed -> ""
+                is ExerciseLifeResult.Error -> "\n⚠️ ${lossResult.message}"
             }
-        } else {
-            val allCorrect = correctCount == targetNotes.size
+            
+            val didLoseLife = lossResult is ExerciseLifeResult.LifeLost || 
+                              lossResult is ExerciseLifeResult.LifeLostAndOutOfLives
+            val isOutOfLives = lossResult is ExerciseLifeResult.LifeLostAndOutOfLives ||
+                               lossResult is ExerciseLifeResult.AlreadyOutOfLives
+            
             _state.update {
                 it.copy(
                     feedbackResults = feedbackResults,
                     showFeedback = true,
                     correctCount = correctCount,
                     allCorrect = allCorrect,
-                    feedbackMessage = if (allCorrect) {
-                        "Parabéns! Todas as notas corretas! 🎉"
-                    } else {
-                        "Você acertou $correctCount de ${targetNotes.size}."
-                    }
+                    accuracy = accuracy,
+                    lifeLost = didLoseLife,
+                    outOfLives = isOutOfLives,
+                    feedbackMessage = baseMessage + lifeMessage
                 )
             }
             
+            // Award XP if completed successfully (accuracy >= 75%)
+            if (accuracy >= 75f) {
+                val baseXp = (10 + (accuracy * 0.2f).toInt()).coerceIn(10, 30)
+                rewardsManager.awardExerciseXp(
+                    baseXp = baseXp,
+                    accuracy = accuracy,
+                    isFirstOfDay = isFirstExerciseOfDay,
+                    isPerfect = allCorrect
+                )
+                isFirstExerciseOfDay = false
+            }
+            
+            // Complete exercise if perfect
             if (allCorrect) {
-                viewModelScope.launch {
-                    delay(2000)
-                    _state.update { it.copy(isComplete = true) }
-                }
+                delay(2500)
+                _state.update { it.copy(isComplete = true) }
             }
         }
     }
@@ -458,12 +628,12 @@ class MelodicPerceptionViewModel @Inject constructor(
     }
     
     /**
-     * Play what the user has written
+     * Play what the user has written (including rests as silence)
      */
     fun playUserNotes() {
         viewModelScope.launch {
-            val notes = _state.value.userNotes.filterIsInstance<Note>()
-            if (notes.isEmpty()) {
+            val elements = _state.value.userNotes
+            if (elements.isEmpty()) {
                 _state.update { it.copy(feedbackMessage = "Adicione notas primeiro!") }
                 return@launch
             }
@@ -477,10 +647,21 @@ class MelodicPerceptionViewModel @Inject constructor(
                 delay(msPerBeat)
             }
             
-            // Play user's notes
-            for (note in notes) {
-                midiPlayer.playPitch(note.pitch, durationMs = (msPerBeat * note.durationBeats * 0.9).toInt())
-                delay((msPerBeat * note.durationBeats).toLong())
+            // Play user's elements (notes and rests)
+            for (element in elements) {
+                when (element) {
+                    is Note -> {
+                        midiPlayer.playPitch(element.pitch, durationMs = (msPerBeat * element.durationBeats * 0.9).toInt())
+                        delay((msPerBeat * element.durationBeats).toLong())
+                    }
+                    is Rest -> {
+                        // Rest = just delay (silence)
+                        delay((msPerBeat * element.durationBeats).toLong())
+                    }
+                    else -> {
+                        delay((msPerBeat * element.durationBeats).toLong())
+                    }
+                }
             }
         }
     }
@@ -597,6 +778,82 @@ class MelodicPerceptionViewModel @Inject constructor(
         }
     }
     
+    /**
+     * Move the currently selected note UP one step (semitone or staff position)
+     */
+    fun moveNoteUp() {
+        val currentState = _state.value
+        val index = currentState.currentNoteIndex
+        val existingNote = currentState.userNotes.getOrNull(index) as? Note ?: return
+        
+        // Calculate new pitch (move up by one diatonic step)
+        val currentNoteName = existingNote.pitch.note
+        val currentOctave = existingNote.pitch.octave
+        
+        val noteOrder = listOf(NoteName.C, NoteName.D, NoteName.E, NoteName.F, NoteName.G, NoteName.A, NoteName.B)
+        val currentIndex = noteOrder.indexOf(currentNoteName)
+        
+        val newNoteIndex = (currentIndex + 1) % 7
+        val newOctave = if (newNoteIndex == 0) currentOctave + 1 else currentOctave
+        
+        // Clamp octave
+        if (newOctave > 6) return
+        
+        val newPitch = Pitch(noteOrder[newNoteIndex], newOctave, existingNote.pitch.alteration)
+        val updatedNote = existingNote.copy(pitch = newPitch)
+        
+        val updatedNotes = currentState.userNotes.toMutableList()
+        updatedNotes[index] = updatedNote
+        
+        _state.update {
+            it.copy(
+                userNotes = updatedNotes,
+                selectedNote = noteOrder[newNoteIndex],
+                selectedOctave = newOctave,
+                showFeedback = false,
+                feedbackMessage = null
+            )
+        }
+    }
+    
+    /**
+     * Move the currently selected note DOWN one step (semitone or staff position)
+     */
+    fun moveNoteDown() {
+        val currentState = _state.value
+        val index = currentState.currentNoteIndex
+        val existingNote = currentState.userNotes.getOrNull(index) as? Note ?: return
+        
+        // Calculate new pitch (move down by one diatonic step)
+        val currentNoteName = existingNote.pitch.note
+        val currentOctave = existingNote.pitch.octave
+        
+        val noteOrder = listOf(NoteName.C, NoteName.D, NoteName.E, NoteName.F, NoteName.G, NoteName.A, NoteName.B)
+        val currentIndex = noteOrder.indexOf(currentNoteName)
+        
+        val newNoteIndex = if (currentIndex == 0) 6 else currentIndex - 1
+        val newOctave = if (currentIndex == 0) currentOctave - 1 else currentOctave
+        
+        // Clamp octave
+        if (newOctave < 2) return
+        
+        val newPitch = Pitch(noteOrder[newNoteIndex], newOctave, existingNote.pitch.alteration)
+        val updatedNote = existingNote.copy(pitch = newPitch)
+        
+        val updatedNotes = currentState.userNotes.toMutableList()
+        updatedNotes[index] = updatedNote
+        
+        _state.update {
+            it.copy(
+                userNotes = updatedNotes,
+                selectedNote = noteOrder[newNoteIndex],
+                selectedOctave = newOctave,
+                showFeedback = false,
+                feedbackMessage = null
+            )
+        }
+    }
+    
     override fun onCleared() {
         super.onCleared()
         midiPlayer.stop()
@@ -630,5 +887,11 @@ data class MelodicPerceptionState(
     val feedbackResults: Map<Int, Boolean> = emptyMap(),
     val feedbackMessage: String? = null,
     val correctCount: Int = 0,
-    val allCorrect: Boolean = false
+    val allCorrect: Boolean = false,
+    
+    // Lives integration
+    val accuracy: Float = 0f,
+    val lifeLost: Boolean = false,
+    val outOfLives: Boolean = false
 )
+

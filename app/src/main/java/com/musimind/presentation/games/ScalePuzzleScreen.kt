@@ -1,0 +1,187 @@
+package com.musimind.presentation.games
+
+import androidx.compose.animation.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+
+@Composable
+fun ScalePuzzleScreen(
+    userId: String,
+    onBack: () -> Unit,
+    viewModel: ScalePuzzleViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsState()
+    
+    LaunchedEffect(Unit) { viewModel.loadLevels(userId) }
+    
+    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF10B981), Color(0xFF059669))))) {
+        when (state.gamePhase) {
+            ScalePuzzlePhase.LEVEL_SELECT -> ScaleLevelSelect(state, viewModel, userId, onBack)
+            ScalePuzzlePhase.PLAYING -> ScalePlayScreen(state, viewModel)
+            ScalePuzzlePhase.PAUSED -> PauseScreen({ viewModel.resumeGame() }, { viewModel.restartLevel(userId) }, { viewModel.backToLevelSelect() })
+            ScalePuzzlePhase.RESULT -> ResultScreen(state.score, state.stars, state.correctCount, state.wrongCount, state.maxCombo, state.xpEarned, state.coinsEarned, { viewModel.restartLevel(userId) }, {}, { viewModel.backToLevelSelect() })
+        }
+    }
+}
+
+@Composable
+private fun ScaleLevelSelect(state: ScalePuzzleState, viewModel: ScalePuzzleViewModel, userId: String, onBack: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = Color.White) }
+            Text("🧩 Escalas", style = MaterialTheme.typography.headlineMedium, color = Color.White, fontWeight = FontWeight.Bold)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(20.dp)).padding(horizontal = 12.dp, vertical = 6.dp)) {
+                Icon(Icons.Default.Star, null, tint = Color(0xFFFFD700), modifier = Modifier.size(20.dp))
+                Text("${state.totalStars}", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+        if (state.isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Color.White) }
+        } else {
+            LazyVerticalGrid(GridCells.Fixed(2), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(state.levels) { level ->
+                    val stars = state.highScores[level.id]?.bestStars ?: 0
+                    Card(Modifier.fillMaxWidth().aspectRatio(1f).clickable { viewModel.startLevel(userId, level) }, colors = CardDefaults.cardColors(containerColor = Color(0xFF059669)), shape = RoundedCornerShape(16.dp)) {
+                        Box(Modifier.fillMaxSize().padding(12.dp)) {
+                            Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
+                                Text("${level.levelNumber}", style = MaterialTheme.typography.headlineLarge, color = Color.White, fontWeight = FontWeight.Bold)
+                                Text(level.title, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.9f), textAlign = TextAlign.Center)
+                                Row { repeat(3) { i -> Icon(if (i < stars) Icons.Default.Star else Icons.Default.StarBorder, null, tint = if (i < stars) Color(0xFFFFD700) else Color.White.copy(alpha = 0.5f), modifier = Modifier.size(24.dp)) } }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScalePlayScreen(state: ScalePuzzleState, viewModel: ScalePuzzleViewModel) {
+    var selectedPiece by remember { mutableStateOf<PuzzlePiece?>(null) }
+    
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Header
+        Row(Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.3f)).padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("PONTOS", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.7f))
+                Text("${state.score}", style = MaterialTheme.typography.headlineSmall, color = Color.White, fontWeight = FontWeight.Bold)
+            }
+            Text("${state.currentRound}/${state.totalRounds}", color = Color.White)
+            if (state.combo > 1) Text("🔥 x${state.combo}", color = Color(0xFFFFD700), fontWeight = FontWeight.Bold)
+            IconButton(onClick = { viewModel.pauseGame() }) { Icon(Icons.Default.Pause, null, tint = Color.White) }
+        }
+        
+        // Info da escala
+        Card(Modifier.fillMaxWidth().padding(16.dp), colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f))) {
+            Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Monte a ${viewModel.getScaleDisplayName(state.currentScaleType)}", style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold)
+                Text("Tônica: ${state.currentTonicName}", color = Color(0xFFFFD700), fontSize = 18.sp)
+            }
+        }
+        
+        // Slots para as notas
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.Center) {
+            state.slots.forEachIndexed { index, slot ->
+                val isCorrect = slot.currentPiece?.noteIndex == slot.expectedNoteIndex
+                val showError = state.lastRoundCorrect == false && slot.currentPiece != null && !isCorrect
+                
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .padding(2.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(when {
+                            showError -> Color(0xFFE91E63)
+                            slot.currentPiece != null -> Color(0xFF4CAF50)
+                            else -> Color.White.copy(alpha = 0.2f)
+                        })
+                        .border(2.dp, if (selectedPiece != null && slot.currentPiece == null) Color.White else Color.Transparent, RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (selectedPiece != null && slot.currentPiece == null) {
+                                viewModel.placePiece(selectedPiece!!.id, slot.id)
+                                selectedPiece = null
+                            } else if (slot.currentPiece != null) {
+                                viewModel.removePiece(slot.id)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (slot.currentPiece != null) {
+                        Text(slot.currentPiece.noteName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                    } else {
+                        Text("${index + 1}º", color = Color.White.copy(alpha = 0.5f), fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+        
+        Spacer(Modifier.height(16.dp))
+        
+        // Feedback
+        state.lastRoundCorrect?.let { correct ->
+            Text(
+                if (correct) "✅ Correto! +${200 + state.combo * 50} pontos" else "❌ Tente novamente!",
+                color = if (correct) Color(0xFF4CAF50) else Color(0xFFE91E63),
+                fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+        
+        Spacer(Modifier.weight(1f))
+        
+        // Botão para ouvir a escala
+        OutlinedButton(onClick = { viewModel.playScale() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Icon(if (state.isPlayingScale) Icons.Default.VolumeUp else Icons.Default.PlayArrow, null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (state.isPlayingScale) "Tocando..." else "Ouvir Escala", color = Color.White)
+        }
+        
+        Spacer(Modifier.height(16.dp))
+        
+        // Peças disponíveis
+        Text("Toque para selecionar, depois toque no slot:", color = Color.White.copy(alpha = 0.7f), modifier = Modifier.padding(horizontal = 16.dp), fontSize = 12.sp)
+        Spacer(Modifier.height(8.dp))
+        
+        LazyRow(
+            modifier = Modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.3f)).padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(state.availablePieces) { piece ->
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (selectedPiece?.id == piece.id) Color(0xFFFFD700) else Color(0xFF10B981))
+                        .border(2.dp, if (selectedPiece?.id == piece.id) Color.White else Color.Transparent, RoundedCornerShape(12.dp))
+                        .clickable { selectedPiece = if (selectedPiece?.id == piece.id) null else piece },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(piece.noteName, color = Color.White, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
