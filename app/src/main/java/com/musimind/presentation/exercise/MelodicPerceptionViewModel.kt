@@ -254,6 +254,53 @@ class MelodicPerceptionViewModel @Inject constructor(
     }
     
     /**
+     * Select dot type (none, single, double)
+     */
+    fun selectDotType(dotType: DotType) {
+        _state.update { it.copy(selectedDotType = dotType) }
+    }
+    
+    /**
+     * Toggle tied note on/off
+     */
+    fun toggleTied() {
+        _state.update { it.copy(selectedTied = !it.selectedTied) }
+    }
+    
+    /**
+     * Toggle metronome on/off
+     */
+    fun toggleMetronome() {
+        _state.update { it.copy(metronomeEnabled = !it.metronomeEnabled) }
+    }
+    
+    /**
+     * Toggle tie on the CURRENT note (where cursor is)
+     * This allows adding a tie from the selected note to the next one
+     */
+    fun toggleTieOnCurrentNote() {
+        val currentState = _state.value
+        val index = currentState.currentNoteIndex
+        val notes = currentState.userNotes.toMutableList()
+        
+        if (index < 0 || index >= notes.size) return
+        
+        val element = notes[index]
+        if (element is Note) {
+            // Toggle the tied property on the current note
+            notes[index] = element.copy(tied = !element.tied)
+            _state.update { it.copy(userNotes = notes) }
+        }
+    }
+    
+    /**
+     * Dismiss feedback modal
+     */
+    fun dismissFeedbackModal() {
+        _state.update { it.copy(showFeedbackModal = false, feedbackMessage = null) }
+    }
+    
+    /**
      * Add a note based on current selection with automatic bar break.
      * If the note exceeds the measure, it's split into tied notes.
      */
@@ -270,23 +317,23 @@ class MelodicPerceptionViewModel @Inject constructor(
         }
         
         val pitch = Pitch(noteName, currentState.selectedOctave, alteration)
-        val duration = currentState.selectedDuration
+        
+        // Calculate final duration with dots
+        val baseDuration = currentState.selectedDuration
+        val duration = when (currentState.selectedDotType) {
+            DotType.NONE -> baseDuration
+            DotType.SINGLE -> baseDuration * 1.5f   // 50% increase
+            DotType.DOUBLE -> baseDuration * 1.75f  // 75% increase
+        }
+        
+        val isDotted = currentState.selectedDotType == DotType.SINGLE
+        val isDoubleDotted = currentState.selectedDotType == DotType.DOUBLE
+        val isTied = currentState.selectedTied
         
         // Calculate total beats used so far
         val totalBeatsUsed = currentState.userNotes.sumOf { it.durationBeats.toDouble() }.toFloat()
         
-        // Maximum beats allowed (4 measures in 4/4 = 16 beats)
-        val maxBeats = 16f
-        
-        // Check if adding this note would exceed the limit
-        if (totalBeatsUsed + duration > maxBeats + 0.001f) {
-            _state.update {
-                it.copy(
-                    feedbackMessage = "Limite de compassos atingido!"
-                )
-            }
-            return
-        }
+        // No limit on beats - score will scroll horizontally
         
         // Calculate position within current measure (0-based: 0.0 to 3.999...)
         val beatsPerMeasure = 4f // 4/4 time signature
@@ -304,6 +351,9 @@ class MelodicPerceptionViewModel @Inject constructor(
                 durationBeats = duration,
                 pitch = pitch,
                 accidental = currentState.selectedAccidental,
+                dotted = isDotted,
+                doubleDotted = isDoubleDotted,
+                tied = isTied,
                 beatNumber = beatNumber
             )
             
@@ -567,6 +617,8 @@ class MelodicPerceptionViewModel @Inject constructor(
             
             // Complete exercise if perfect
             if (allCorrect) {
+                // Play victory sound - ascending arpeggio/fanfare
+                playVictorySound()
                 delay(2500)
                 _state.update { it.copy(isComplete = true) }
             }
@@ -574,7 +626,42 @@ class MelodicPerceptionViewModel @Inject constructor(
     }
     
     /**
+     * Play victory sound - an ascending major chord arpeggio
+     */
+    private suspend fun playVictorySound() {
+        val tempo = 150 // Fast tempo for fanfare
+        val msPerNote = (60000 / tempo / 2).toLong() // 16th notes
+        
+        // C major chord arpeggio: C4, E4, G4, C5
+        val victoryNotes = listOf(
+            Pitch(NoteName.C, 4),
+            Pitch(NoteName.E, 4),
+            Pitch(NoteName.G, 4),
+            Pitch(NoteName.C, 5)
+        )
+        
+        for (pitch in victoryNotes) {
+            midiPlayer.playPitch(pitch, durationMs = msPerNote.toInt(), velocity = 0.9f)
+            delay(msPerNote)
+        }
+        
+        // Final chord
+        delay(50)
+        midiPlayer.playChord(
+            pitches = listOf(
+                Pitch(NoteName.C, 4),
+                Pitch(NoteName.E, 4),
+                Pitch(NoteName.G, 4),
+                Pitch(NoteName.C, 5)
+            ),
+            durationMs = 800,
+            velocity = 1.0f
+        )
+    }
+    
+    /**
      * Play the target melody with metronome countdown
+     * Respects ties - tied notes are played as one continuous sound
      */
     fun playMelody() {
         viewModelScope.launch {
@@ -588,10 +675,33 @@ class MelodicPerceptionViewModel @Inject constructor(
                 delay(msPerBeat)
             }
             
-            // Play melody
-            for (note in notes) {
-                midiPlayer.playPitch(note.pitch, durationMs = (msPerBeat * note.durationBeats * 0.9).toInt())
-                delay((msPerBeat * note.durationBeats).toLong())
+            // Play melody with tie handling
+            var index = 0
+            while (index < notes.size) {
+                val note = notes[index]
+                
+                // Calculate total duration including tied notes
+                var totalDuration = note.durationBeats
+                var tiedCount = 0
+                var currentNote: Note = note
+                
+                while (currentNote.tied && (index + tiedCount + 1) < notes.size) {
+                    val nextNote = notes[index + tiedCount + 1]
+                    if (nextNote.pitch.midiPitch == currentNote.pitch.midiPitch) {
+                        totalDuration += nextNote.durationBeats
+                        tiedCount++
+                        currentNote = nextNote
+                    } else {
+                        break
+                    }
+                }
+                
+                // Play the note for the full tied duration
+                midiPlayer.playPitch(note.pitch, durationMs = (msPerBeat * totalDuration * 0.95).toInt())
+                delay((msPerBeat * totalDuration).toLong())
+                
+                // Skip tied notes
+                index += tiedCount + 1
             }
         }
     }
@@ -629,40 +739,137 @@ class MelodicPerceptionViewModel @Inject constructor(
     
     /**
      * Play what the user has written (including rests as silence)
+     * With optional metronome and auto-scroll support
+     * Implements TIES: when a note has tied=true, it connects to the next note as one continuous sound
      */
     fun playUserNotes() {
         viewModelScope.launch {
             val elements = _state.value.userNotes
             if (elements.isEmpty()) {
-                _state.update { it.copy(feedbackMessage = "Adicione notas primeiro!") }
+                _state.update { it.copy(showFeedbackModal = true, feedbackMessage = "Adicione notas primeiro!") }
                 return@launch
             }
             
             val tempo = 80 // BPM
             val msPerBeat = (60000 / tempo).toLong()
+            val metronomeEnabled = _state.value.metronomeEnabled
             
-            // Metronome countdown
+            // Set playing state
+            _state.update { it.copy(isPlaying = true, playbackNoteIndex = -1) }
+            
+            // Metronome countdown (always do 4 beats before playing)
             for (beat in 1..4) {
                 midiPlayer.playMetronomeClick(isAccented = beat == 1)
                 delay(msPerBeat)
             }
             
-            // Play user's elements (notes and rests)
-            for (element in elements) {
+            // Calculate total beats for metronome timing
+            var accumulatedBeats = 0f
+            var nextMetronomeBeat = 1f  // Next beat to play click on (1-indexed)
+            
+            // Process elements to handle ties
+            // When a note has tied=true, combine its duration with the next note(s)
+            var index = 0
+            while (index < elements.size) {
+                val element = elements[index]
+                
+                // Update playback index for auto-scroll
+                _state.update { it.copy(playbackNoteIndex = index) }
+                
                 when (element) {
                     is Note -> {
-                        midiPlayer.playPitch(element.pitch, durationMs = (msPerBeat * element.durationBeats * 0.9).toInt())
-                        delay((msPerBeat * element.durationBeats).toLong())
+                        // Calculate total duration including tied notes
+                        var totalDuration = element.durationBeats
+                        var tiedCount = 0
+                        var currentNote: Note = element
+                        
+                        // If this note is tied, accumulate duration of subsequent tied notes
+                        while (currentNote.tied && (index + tiedCount + 1) < elements.size) {
+                            val nextElement = elements[index + tiedCount + 1]
+                            if (nextElement is Note && nextElement.pitch.midiPitch == currentNote.pitch.midiPitch) {
+                                totalDuration += nextElement.durationBeats
+                                tiedCount++
+                                currentNote = nextElement
+                            } else {
+                                break
+                            }
+                        }
+                        
+                        val noteDurationMs = (msPerBeat * totalDuration).toLong()
+                        
+                        // Play the note for the full tied duration
+                        midiPlayer.playPitch(element.pitch, durationMs = (noteDurationMs * 0.95).toInt())
+                        
+                        // Wait for the note duration with metronome clicks if enabled
+                        if (metronomeEnabled) {
+                            // Calculate how many metronome beats fall within this note
+                            val noteStartBeat = accumulatedBeats
+                            val noteEndBeat = accumulatedBeats + totalDuration
+                            
+                            var elapsed = 0L
+                            while (elapsed < noteDurationMs) {
+                                val currentBeatPosition = noteStartBeat + (elapsed.toFloat() / msPerBeat)
+                                
+                                // Check if we should play a metronome click
+                                // Only play if we're at or past the next beat position
+                                if (nextMetronomeBeat <= noteEndBeat && currentBeatPosition >= nextMetronomeBeat - 0.02f) {
+                                    val beatNumber = nextMetronomeBeat.toInt()
+                                    val isDownbeat = beatNumber == 1 || (beatNumber - 1) % 4 == 0
+                                    midiPlayer.playMetronomeClick(isAccented = isDownbeat)
+                                    nextMetronomeBeat += 1f
+                                }
+                                
+                                delay(10) // Small delay for smooth timing
+                                elapsed += 10
+                            }
+                        } else {
+                            delay(noteDurationMs)
+                        }
+                        
+                        accumulatedBeats += totalDuration
+                        
+                        // Skip the tied notes we already played
+                        index += tiedCount
                     }
                     is Rest -> {
-                        // Rest = just delay (silence)
-                        delay((msPerBeat * element.durationBeats).toLong())
+                        val restDurationMs = (msPerBeat * element.durationBeats).toLong()
+                        
+                        // Play metronome clicks during rest if enabled
+                        if (metronomeEnabled) {
+                            val restStartBeat = accumulatedBeats
+                            val restEndBeat = accumulatedBeats + element.durationBeats
+                            
+                            var elapsed = 0L
+                            while (elapsed < restDurationMs) {
+                                val currentBeatPosition = restStartBeat + (elapsed.toFloat() / msPerBeat)
+                                
+                                if (nextMetronomeBeat <= restEndBeat && currentBeatPosition >= nextMetronomeBeat - 0.02f) {
+                                    val beatNumber = nextMetronomeBeat.toInt()
+                                    val isDownbeat = beatNumber == 1 || (beatNumber - 1) % 4 == 0
+                                    midiPlayer.playMetronomeClick(isAccented = isDownbeat)
+                                    nextMetronomeBeat += 1f
+                                }
+                                
+                                delay(10)
+                                elapsed += 10
+                            }
+                        } else {
+                            delay(restDurationMs)
+                        }
+                        
+                        accumulatedBeats += element.durationBeats
                     }
                     else -> {
                         delay((msPerBeat * element.durationBeats).toLong())
+                        accumulatedBeats += element.durationBeats
                     }
                 }
+                
+                index++
             }
+            
+            // Reset playing state
+            _state.update { it.copy(isPlaying = false, playbackNoteIndex = -1) }
         }
     }
     
@@ -881,11 +1088,22 @@ data class MelodicPerceptionState(
     val selectedOctave: Int = 4,
     val selectedDuration: Float = 1f, // Quarter note default
     val selectedAccidental: AccidentalType? = null,
+    val selectedDotType: DotType = DotType.NONE, // none, single, double
+    val selectedTied: Boolean = false, // Tie to next note
+    
+    // Metronome
+    val metronomeEnabled: Boolean = false,
+    
+    // Playback state
+    val isPlaying: Boolean = false,
+    val playbackNoteIndex: Int = -1, // Which note is currently playing
+    val scrollPosition: Float = 0f, // Scroll position for auto-scroll during playback
     
     // Feedback
     val showFeedback: Boolean = false,
     val feedbackResults: Map<Int, Boolean> = emptyMap(),
     val feedbackMessage: String? = null,
+    val showFeedbackModal: Boolean = false, // Show feedback as modal instead of inline
     val correctCount: Int = 0,
     val allCorrect: Boolean = false,
     
@@ -894,4 +1112,11 @@ data class MelodicPerceptionState(
     val lifeLost: Boolean = false,
     val outOfLives: Boolean = false
 )
+
+// Dot type enum for augmentation dots
+enum class DotType {
+    NONE,
+    SINGLE,     // Increases duration by 50%
+    DOUBLE      // Increases duration by 75%
+}
 

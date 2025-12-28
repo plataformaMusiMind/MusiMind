@@ -8,7 +8,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -162,7 +164,9 @@ private fun SolfegeExerciseContent(
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        // Continuous Score view - single staff with all notes
+        // Continuous Score view - single staff with all notes (with horizontal scroll)
+        val solfegeScrollState = rememberScrollState()
+        
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -170,17 +174,24 @@ private fun SolfegeExerciseContent(
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color.White)
         ) {
-            ContinuousScoreView(
-                notes = state.notes,
-                currentNoteIndex = state.currentNoteIndex,
-                ghostNoteMidi = state.ghostNoteMidi,
-                currentOctave = state.currentOctave,
-                showBeatNumbers = state.showBeatNumbers,
-                showSolfegeNames = state.showSolfegeNames,
-                clef = state.clef,
-                timeSignature = state.timeSignature,
-                keySignature = state.keySignature
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .horizontalScroll(solfegeScrollState)
+                    .padding(horizontal = 8.dp)
+            ) {
+                ContinuousScoreView(
+                    notes = state.notes,
+                    currentNoteIndex = state.currentNoteIndex,
+                    ghostNoteMidi = state.ghostNoteMidi,
+                    currentOctave = state.currentOctave,
+                    showBeatNumbers = state.showBeatNumbers,
+                    showSolfegeNames = state.showSolfegeNames,
+                    clef = state.clef,
+                    timeSignature = state.timeSignature,
+                    keySignature = state.keySignature
+                )
+            }
         }
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -318,9 +329,21 @@ private fun ContinuousScoreView(
         }
     }
     
+    // Calculate dynamic width based on TOTAL BEATS (not just number of notes)
+    val totalBeats = notes.sumOf { it.durationBeats.toDouble() }.toFloat()
+    val beatWidth = 80.dp // Width per beat
+    val headerWidth = 150.dp // Space for clef + time signature
+    val barlineSpace = 50.dp // Extra space for final barlines
+    val minBeats = 8f // Minimum 2 measures worth of space
+    
+    // Width = header + (beats * beatWidth) + barline space
+    val dynamicWidth = headerWidth + (beatWidth * maxOf(totalBeats, minBeats)) + barlineSpace
+    
     androidx.compose.foundation.Canvas(
         modifier = Modifier
-            .fillMaxSize()
+            .widthIn(min = dynamicWidth)
+            .width(dynamicWidth)
+            .fillMaxHeight()
             .padding(16.dp)
     ) {
         val canvas = drawContext.canvas.nativeCanvas
@@ -493,6 +516,27 @@ private fun ContinuousScoreView(
             
             // Draw notehead
             canvas.drawText(noteheadGlyph.toString(), noteX, noteY, notePaint)
+            
+            // Draw augmentation dots if needed
+            if (note.dotted || note.doubleDotted) {
+                val dotGlyph = com.musimind.music.notation.smufl.SMuFLGlyphs.AugmentationDots.DOT
+                // Position dots to the right of the notehead
+                // Adjust Y position: if on a line, move dot to adjacent space
+                val isOnLine = staffPosition % 2 == 0
+                val dotY = if (isOnLine) noteY - staffSpace / 2f else noteY
+                
+                val dotSpacing = staffSpace * 0.4f
+                val firstDotX = noteX + actualNoteheadWidth + dotSpacing
+                
+                // Single dot
+                canvas.drawText(dotGlyph.toString(), firstDotX, dotY, notePaint)
+                
+                // Double dot
+                if (note.doubleDotted) {
+                    val secondDotX = firstDotX + dotSpacing
+                    canvas.drawText(dotGlyph.toString(), secondDotX, dotY, notePaint)
+                }
+            }
             
             // Draw ghost note (where user is actually singing) - only for current note
             if (index == currentNoteIndex && ghostNoteMidi != null) {

@@ -196,10 +196,9 @@ class BeamAnalyzer(
         val firstNoteX = noteXPositions[firstNote] ?: 0f
         val lastNoteX = noteXPositions[lastNote] ?: 0f
         
-        // Stem anchor offsets (per SMuFL specification)
-        // These are empirical values from the Flutter lib, validated against Bravura
-        val stemUpXOffset = noteheadWidth * 0.92f   // Right edge of notehead
-        val stemDownXOffset = noteheadWidth * 0.08f // Left edge of notehead
+
+        val stemUpXOffset = noteheadWidth * 0.92f
+        val stemDownXOffset = noteheadWidth * 0.08f
         
         val xOffset = if (group.stemDirection == StemDirection.UP) {
             stemUpXOffset
