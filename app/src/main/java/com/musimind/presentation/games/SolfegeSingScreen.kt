@@ -123,16 +123,84 @@ private fun SolfegePlayScreen(state: SolfegeSingState, viewModel: SolfegeSingVie
         
         Spacer(Modifier.height(32.dp))
         
-        // Instrução / Status
-        val statusText = when (state.melodyPhase) {
-            MelodySingPhase.LISTENING -> if (state.isPlayingMelody) "🔊 Ouça a melodia..." else "Preparando..."
-            MelodySingPhase.SINGING -> if (state.isRecording) "🎤 Cantando..." else "🎤 Sua vez! Cante!"
-            MelodySingPhase.RESULT -> {
-                val percent = (state.accuracy * 100).toInt()
-                "${state.medal ?: ""} $percent% de precisão"
+        // Status Text
+        Text(
+            text = state.statusText,
+            style = MaterialTheme.typography.titleLarge, 
+            color = Color.White, 
+            fontWeight = FontWeight.Bold, 
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+        
+        // Real-time Pitch Indicator (shown during recording)
+        if (state.isRecording && state.detectedPitchHz != null) {
+            Spacer(Modifier.height(16.dp))
+            
+            // Pitch accuracy indicator
+            val pitchColor = when {
+                state.isCurrentPitchCorrect -> Color(0xFF4CAF50) // Green - on pitch
+                state.centDeviation > 0 -> Color(0xFFFF9800)    // Orange - sharp
+                else -> Color(0xFF2196F3)                        // Blue - flat
+            }
+            
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Pitch deviation bar
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(40.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("♭", color = Color.White.copy(alpha = 0.5f), fontSize = 20.sp)
+                    Box(
+                        modifier = Modifier.weight(1f).height(8.dp).padding(horizontal = 8.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color.White.copy(alpha = 0.2f))
+                    ) {
+                        // Center line
+                        Box(
+                            modifier = Modifier.fillMaxHeight().width(2.dp)
+                                .align(Alignment.Center)
+                                .background(Color.White)
+                        )
+                        // Pitch indicator
+                        val offset = (state.centDeviation / 50f).coerceIn(-1f, 1f) * 0.5f + 0.5f
+                        Box(
+                            modifier = Modifier.fillMaxHeight().width(20.dp)
+                                .align(Alignment.CenterStart)
+                                .offset(x = (offset * 280).dp)
+                                .clip(CircleShape)
+                                .background(pitchColor)
+                        )
+                    }
+                    Text("♯", color = Color.White.copy(alpha = 0.5f), fontSize = 20.sp)
+                }
+                
+                // Detected note name
+                state.detectedMidiNote?.let { midi ->
+                    val noteNames = listOf("Dó", "Dó#", "Ré", "Ré#", "Mi", "Fá", "Fá#", "Sol", "Sol#", "Lá", "Lá#", "Si")
+                    val noteName = noteNames[midi % 12]
+                    val octave = (midi / 12) - 1
+                    
+                    Text(
+                        text = "$noteName$octave",
+                        color = pitchColor,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 24.sp
+                    )
+                }
+                
+                // Accuracy percentage
+                if (state.realtimeAccuracy > 0) {
+                    Text(
+                        text = "Precisão: ${(state.realtimeAccuracy * 100).toInt()}%",
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 14.sp
+                    )
+                }
             }
         }
-        Text(statusText, style = MaterialTheme.typography.titleLarge, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterHorizontally))
         
         // Indicador de gravação
         if (state.isRecording) {
@@ -143,6 +211,19 @@ private fun SolfegePlayScreen(state: SolfegeSingState, viewModel: SolfegeSingVie
             Box(Modifier.size(80.dp).scale(pulse).clip(CircleShape).background(Color(0xFFE91E63)).align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Mic, null, tint = Color.White, modifier = Modifier.size(40.dp))
             }
+        }
+        
+        // Medal display on result
+        if (state.melodyPhase == MelodySingPhase.RESULT) {
+            Spacer(Modifier.height(16.dp))
+            val percent = (state.accuracy * 100).toInt()
+            Text(
+                text = "${state.medal ?: ""} $percent% de precisão",
+                style = MaterialTheme.typography.headlineSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
         }
         
         Spacer(Modifier.weight(1f))
@@ -158,10 +239,18 @@ private fun SolfegePlayScreen(state: SolfegeSingState, viewModel: SolfegeSingVie
             }
             
             if (state.melodyPhase == MelodySingPhase.SINGING && !state.isRecording) {
-                Button(onClick = { viewModel.startRecording() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63))) {
-                    Icon(Icons.Default.Mic, null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Gravar")
+                if (!state.hasPermission) {
+                    Text(
+                        "⚠️ Permissão de microfone necessária",
+                        color = Color(0xFFFFD700),
+                        modifier = Modifier.padding(16.dp)
+                    )
+                } else {
+                    Button(onClick = { viewModel.startRecording() }, colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE91E63))) {
+                        Icon(Icons.Default.Mic, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Gravar")
+                    }
                 }
             }
         }

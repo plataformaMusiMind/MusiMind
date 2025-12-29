@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
+import com.musimind.music.audio.GameAudioManager
 
 /**
  * ViewModel para o jogo Chord Match (Match de Acordes)
@@ -22,7 +23,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ChordMatchViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(ChordMatchState())
@@ -143,7 +145,8 @@ class ChordMatchViewModel @Inject constructor(
     }
     
     private fun playChordSound(chordSymbol: String) {
-        // TODO: Tocar o som do acorde via audio engine
+        // Tocar o acorde usando audioManager
+        audioManager.playChordByName(chordSymbol, octave = 4, durationMs = 800)
     }
     
     private fun checkMatch(first: MatchCard, second: MatchCard) {

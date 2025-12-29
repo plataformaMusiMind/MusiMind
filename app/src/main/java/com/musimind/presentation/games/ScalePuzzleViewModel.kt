@@ -23,7 +23,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ScalePuzzleViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: com.musimind.music.audio.GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(ScalePuzzleState())
@@ -254,8 +255,23 @@ class ScalePuzzleViewModel @Inject constructor(
     fun playScale() {
         viewModelScope.launch {
             _state.update { it.copy(isPlayingScale = true) }
-            // TODO: Tocar as notas da escala atual
-            delay(2000)
+            
+            // Tocar a escala atual usando GameAudioManager
+            val currentState = _state.value
+            val noteNames = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+            val rootNote = noteNames[currentState.currentTonicIndex]
+            
+            audioManager.playScale(
+                rootNote = "${rootNote}4",
+                scaleType = currentState.currentScaleType,
+                ascending = true,
+                noteDurationMs = 300
+            )
+            
+            // Esperar tempo suficiente para a escala tocar
+            val scaleLength = scaleStructures[currentState.currentScaleType]?.size ?: 8
+            delay((scaleLength * 350).toLong())
+            
             _state.update { it.copy(isPlayingScale = false) }
         }
     }

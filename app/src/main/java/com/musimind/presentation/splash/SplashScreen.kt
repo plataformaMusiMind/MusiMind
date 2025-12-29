@@ -43,6 +43,7 @@ fun SplashScreen(
     onNavigateToPlanSelection: () -> Unit,
     onNavigateToAvatarSelection: () -> Unit,
     onNavigateToTutorial: () -> Unit,
+    onNavigateToLanguageSelection: () -> Unit = {},
     viewModel: SplashViewModel = hiltViewModel()
 ) {
     val scale = remember { Animatable(0f) }
@@ -53,6 +54,9 @@ fun SplashScreen(
         when (destination) {
             is SplashDestination.Loading -> {
                 // Still loading, show animation
+            }
+            is SplashDestination.LanguageSelection -> {
+                onNavigateToLanguageSelection()
             }
             is SplashDestination.Login -> {
                 onNavigateToLogin()

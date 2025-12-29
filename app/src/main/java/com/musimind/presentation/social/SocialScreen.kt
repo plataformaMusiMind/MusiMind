@@ -2,41 +2,16 @@ package com.musimind.presentation.social
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -44,143 +19,321 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.musimind.ui.theme.Primary
 import com.musimind.ui.theme.PrimaryVariant
 import com.musimind.ui.theme.StreakOrange
 import com.musimind.ui.theme.XpGold
 
 /**
- * Social Screen - Friends, Activity Feed
+ * Social Screen - Friends, Activity Feed, Connections
+ * 
+ * Features:
+ * - Real-time friend list
+ * - Friend suggestions
+ * - Activity feed from friends
+ * - Add/accept/remove friends
+ * - Search users
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SocialScreen(
-    onFriendClick: (String) -> Unit
+    onFriendClick: (String) -> Unit,
+    viewModel: SocialViewModel = hiltViewModel()
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-    ) {
-        TopAppBar(
-            title = {
-                Text(
-                    text = "Social",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+    val state by viewModel.state.collectAsState()
+    
+    var showSearchDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    
+    // Snackbar
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    LaunchedEffect(state.message, state.error) {
+        state.message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessage()
+        }
+        state.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessage()
+        }
+    }
+    
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Social",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                actions = {
+                    // Show badge if there are pending requests
+                    if (state.friendRequests.isNotEmpty()) {
+                        BadgedBox(
+                            badge = {
+                                Badge { Text("${state.friendRequests.size}") }
+                            }
+                        ) {
+                            IconButton(onClick = { /* Show requests */ }) {
+                                Icon(
+                                    imageVector = Icons.Filled.Notifications,
+                                    contentDescription = "Solicitações"
+                                )
+                            }
+                        }
+                    }
+                    
+                    IconButton(onClick = { showSearchDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.PersonAdd,
+                            contentDescription = "Adicionar amigo"
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
-            },
-            actions = {
-                IconButton(onClick = { /* Add friend */ }) {
-                    Icon(
-                        imageVector = Icons.Filled.PersonAdd,
-                        contentDescription = "Adicionar amigo"
+            )
+        }
+    ) { padding ->
+        if (state.isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Friend Requests Section
+                if (state.friendRequests.isNotEmpty()) {
+                    item {
+                        FriendRequestsSection(
+                            requests = state.friendRequests,
+                            onAccept = { viewModel.acceptFriendRequest(it) },
+                            onReject = { viewModel.rejectFriendRequest(it) }
+                        )
+                    }
+                }
+                
+                // Friend Suggestions
+                if (state.suggestions.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Sugestões de Amigos",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    
+                    item {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(state.suggestions) { suggestion ->
+                                FriendSuggestionCard(
+                                    name = suggestion.name,
+                                    reason = suggestion.reason,
+                                    streak = suggestion.streak,
+                                    onAdd = { viewModel.sendFriendRequest(suggestion.id) }
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Active Friends
+                if (state.friends.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Amigos (${state.friends.size})",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    
+                    item {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(state.friends) { friend ->
+                                ActiveFriendAvatar(
+                                    name = friend.name,
+                                    isOnline = friend.isOnline,
+                                    level = friend.level,
+                                    onClick = { onFriendClick(friend.id) }
+                                )
+                            }
+                        }
+                    }
+                }
+                
+                // Activity Feed
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Atividade Recente",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
+                
+                if (state.activityFeed.isEmpty()) {
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant
+                            )
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Icon(
+                                    Icons.Default.Group,
+                                    null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = MaterialTheme.colorScheme.outline
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Adicione amigos para ver suas atividades!",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(state.activityFeed) { activity ->
+                        ActivityFeedCard(activity = activity)
+                    }
+                }
+            }
+        }
+    }
+    
+    // Search Dialog
+    if (showSearchDialog) {
+        SearchUserDialog(
+            query = searchQuery,
+            onQueryChange = { 
+                searchQuery = it
+                if (it.length >= 3) viewModel.searchUsers(it)
             },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface
-            )
+            searchResults = state.searchResults,
+            onAddFriend = { 
+                viewModel.sendFriendRequest(it)
+                showSearchDialog = false
+            },
+            onDismiss = { 
+                showSearchDialog = false
+                searchQuery = ""
+            }
         )
-        
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Friend Suggestions
-            item {
+    }
+}
+
+@Composable
+private fun FriendRequestsSection(
+    requests: List<FriendRequest>,
+    onAccept: (String) -> Unit,
+    onReject: (String) -> Unit
+) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.PersonAdd,
+                    null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.width(8.dp))
                 Text(
-                    text = "Sugestões de Amigos",
+                    "Solicitações de Amizade",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold
                 )
+                Spacer(Modifier.weight(1f))
+                Badge { Text("${requests.size}") }
             }
             
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Spacer(Modifier.height(12.dp))
+            
+            requests.take(3).forEach { request ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(
-                        listOf(
-                            Triple("Lucas M.", "Mesmo professor", 5),
-                            Triple("Julia R.", "Mesma escola", 12),
-                            Triple("Rafael S.", "Mesmo nível", 3)
+                    // Avatar
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Primary.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            request.fromUserName.firstOrNull()?.toString() ?: "?",
+                            fontWeight = FontWeight.Bold,
+                            color = Primary
                         )
-                    ) { (name, reason, streak) ->
-                        FriendSuggestionCard(
-                            name = name,
-                            reason = reason,
-                            streak = streak,
-                            onAdd = { /* Add friend */ }
+                    }
+                    
+                    Spacer(Modifier.width(12.dp))
+                    
+                    Text(
+                        request.fromUserName,
+                        modifier = Modifier.weight(1f),
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    IconButton(
+                        onClick = { onReject(request.id) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Close,
+                            null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    
+                    IconButton(
+                        onClick = { onAccept(request.id) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Check,
+                            null,
+                            tint = Color(0xFF4CAF50)
                         )
                     }
                 }
-            }
-            
-            // Active Friends
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Amigos Ativos Hoje",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            
-            item {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    items(
-                        listOf(
-                            Pair("Ana", true),
-                            Pair("Carlos", true),
-                            Pair("Beatriz", false),
-                            Pair("Diego", true)
-                        )
-                    ) { (name, isOnline) ->
-                        ActiveFriendAvatar(
-                            name = name,
-                            isOnline = isOnline,
-                            onClick = { onFriendClick(name) }
-                        )
-                    }
-                }
-            }
-            
-            // Activity Feed
-            item {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Atividade Recente",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            
-            // Feed items
-            items(
-                listOf(
-                    ActivityItem("Ana Paula", "completou o nível Solfejo 3", "5 min", 50),
-                    ActivityItem("Carlos Silva", "alcançou sequência de 7 dias", "15 min", 0),
-                    ActivityItem("Maria Santos", "venceu um duelo contra Pedro", "30 min", 100),
-                    ActivityItem("João Lima", "completou o desafio diário", "1h", 75),
-                    ActivityItem("Beatriz Costa", "subiu para o nível 5", "2h", 0)
-                )
-            ) { activity ->
-                ActivityFeedCard(activity = activity)
             }
         }
     }
 }
-
-data class ActivityItem(
-    val userName: String,
-    val action: String,
-    val time: String,
-    val xpEarned: Int
-)
 
 @Composable
 private fun FriendSuggestionCard(
@@ -277,6 +430,7 @@ private fun FriendSuggestionCard(
 private fun ActiveFriendAvatar(
     name: String,
     isOnline: Boolean,
+    level: Int,
     onClick: () -> Unit
 ) {
     Column(
@@ -316,6 +470,12 @@ private fun ActiveFriendAvatar(
             text = name,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Text(
+            text = "Nível $level",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.outline
         )
     }
 }
@@ -394,4 +554,97 @@ private fun ActivityFeedCard(activity: ActivityItem) {
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SearchUserDialog(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    searchResults: List<Friend>,
+    onAddFriend: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Buscar Usuários") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    label = { Text("Nome ou email") },
+                    leadingIcon = { Icon(Icons.Default.Search, null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                Spacer(Modifier.height(16.dp))
+                
+                if (query.length < 3) {
+                    Text(
+                        "Digite pelo menos 3 caracteres para buscar",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                } else if (searchResults.isEmpty()) {
+                    Text(
+                        "Nenhum usuário encontrado",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.height(200.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(searchResults) { user ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { onAddFriend(user.id) }
+                                    .padding(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Primary.copy(alpha = 0.2f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        user.name.firstOrNull()?.toString() ?: "?",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Primary
+                                    )
+                                }
+                                
+                                Spacer(Modifier.width(12.dp))
+                                
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(user.name, fontWeight = FontWeight.Medium)
+                                    Text(
+                                        "Nível ${user.level}",
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                                
+                                Icon(
+                                    Icons.Default.Add,
+                                    null,
+                                    tint = Primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Fechar") }
+        }
+    )
 }

@@ -57,6 +57,10 @@ import com.musimind.ui.theme.Primary
 import com.musimind.ui.theme.PrimaryVariant
 import com.musimind.ui.theme.StreakOrange
 import com.musimind.ui.theme.XpGold
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.musimind.presentation.components.SubscriptionCard
 
 /**
  * Profile Screen - User stats, achievements, settings
@@ -66,8 +70,13 @@ import com.musimind.ui.theme.XpGold
 fun ProfileScreen(
     onEditProfile: () -> Unit,
     onSettings: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onUpgrade: () -> Unit = {},
+    onManageSubscription: () -> Unit = {},
+    viewModel: ProfileViewModel = hiltViewModel()
 ) {
+    val state by viewModel.state.collectAsState()
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -139,14 +148,14 @@ fun ProfileScreen(
                             Spacer(modifier = Modifier.height(16.dp))
                             
                             Text(
-                                text = "Usuário MusiMind",
+                                text = state.userName,
                                 style = MaterialTheme.typography.headlineSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
                             )
                             
                             Text(
-                                text = "Plano Aprendiz • Nível 3",
+                                text = "${state.planType} • Nível ${state.level}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = Color.White.copy(alpha = 0.8f)
                             )
@@ -174,6 +183,14 @@ fun ProfileScreen(
                 }
             }
             
+            // Subscription Card
+            item {
+                SubscriptionCard(
+                    onUpgradeClick = onUpgrade,
+                    onManageClick = onManageSubscription
+                )
+            }
+            
             // Stats Grid
             item {
                 Row(
@@ -182,14 +199,14 @@ fun ProfileScreen(
                 ) {
                     StatCard(
                         title = "XP Total",
-                        value = "1,250",
+                        value = "%,d".format(state.totalXp),
                         icon = Icons.Filled.Star,
                         color = XpGold,
                         modifier = Modifier.weight(1f)
                     )
                     StatCard(
                         title = "Sequência",
-                        value = "7 dias",
+                        value = "${state.streak} dias",
                         icon = Icons.Filled.LocalFireDepartment,
                         color = StreakOrange,
                         modifier = Modifier.weight(1f)
@@ -204,14 +221,14 @@ fun ProfileScreen(
                 ) {
                     StatCard(
                         title = "Nível",
-                        value = "3",
+                        value = "${state.level}",
                         icon = Icons.Filled.EmojiEvents,
                         color = LevelBlue,
                         modifier = Modifier.weight(1f)
                     )
                     StatCard(
                         title = "Lições",
-                        value = "32",
+                        value = "${state.exercisesCompleted}",
                         icon = Icons.Filled.CheckCircle,
                         color = NodeCompleted,
                         modifier = Modifier.weight(1f)

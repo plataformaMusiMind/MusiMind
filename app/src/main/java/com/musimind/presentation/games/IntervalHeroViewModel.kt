@@ -15,6 +15,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 import kotlin.random.Random
+import com.musimind.music.audio.GameAudioManager
 
 /**
  * ViewModel para o jogo Interval Hero (Herói dos Intervalos)
@@ -26,7 +27,8 @@ import kotlin.random.Random
  */
 @HiltViewModel
 class IntervalHeroViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(IntervalHeroState())
@@ -173,17 +175,33 @@ class IntervalHeroViewModel @Inject constructor(
         viewModelScope.launch {
             val state = _state.value
             
-            // Primeiro, mostrar que está tocando
+            // Mostrar que está tocando
             _state.update { it.copy(isPlaying = true) }
             
-            // TODO: Tocar as notas via áudio engine
-            // Se harmônico: tocar simultaneamente
-            // Se melódico: tocar sequencialmente
+            // Converter MIDI para nome de nota
+            val baseNote = midiToNoteName(state.baseNoteMidi)
+            val targetNote = midiToNoteName(state.targetNoteMidi)
+            val intervalSemitones = state.currentInterval?.semitones ?: 0
+            
+            // Tocar o intervalo usando o audioManager
+            audioManager.playInterval(
+                baseNote = baseNote,
+                intervalSemitones = intervalSemitones,
+                durationMs = 500,
+                sequential = !state.isHarmonic // Se melódico, toca sequencial
+            )
             
             delay(if (state.isHarmonic) 1000 else 1500)
             
             _state.update { it.copy(isPlaying = false) }
         }
+    }
+    
+    private fun midiToNoteName(midi: Int): String {
+        val noteNames = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        val octave = (midi / 12) - 1
+        val noteIndex = midi % 12
+        return "${noteNames[noteIndex]}$octave"
     }
     
     fun selectAnswer(intervalCode: String) {

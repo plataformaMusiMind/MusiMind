@@ -5,13 +5,16 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import com.musimind.domain.auth.AuthManager
 import com.musimind.presentation.auth.LoginScreen
 import com.musimind.presentation.auth.RegisterScreen
 import com.musimind.presentation.onboarding.AvatarSelectionScreen
+import com.musimind.presentation.onboarding.LanguageSelectionScreen
 import com.musimind.presentation.onboarding.OnboardingTutorialScreen
 import com.musimind.presentation.onboarding.PlanSelectionScreen
 import com.musimind.presentation.onboarding.UserTypeScreen
@@ -28,9 +31,12 @@ import com.musimind.presentation.profile.ProfileScreen
 @Composable
 fun MusiMindNavGraph(
     navController: NavHostController,
+    authManager: AuthManager,
     modifier: Modifier = Modifier,
     startDestination: String = Screen.Splash.route
 ) {
+    // Get current user ID for use in all screens
+    val currentUserId = remember { authManager.currentUserId }
     NavHost(
         navController = navController,
         startDestination = startDestination,
@@ -60,11 +66,27 @@ fun MusiMindNavGraph(
             )
         }
     ) {
+        // Language Selection Screen - First screen for new users
+        composable(Screen.LanguageSelection.route) {
+            LanguageSelectionScreen(
+                onLanguageSelected = {
+                    navController.navigate(Screen.Splash.route) {
+                        popUpTo(Screen.LanguageSelection.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
         // Splash Screen - Entry point that determines where to navigate
         composable(Screen.Splash.route) {
             SplashScreen(
                 onNavigateToLogin = {
                     navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Splash.route) { inclusive = true }
+                    }
+                },
+                onNavigateToLanguageSelection = {
+                    navController.navigate(Screen.LanguageSelection.route) {
                         popUpTo(Screen.Splash.route) { inclusive = true }
                     }
                 },
@@ -216,7 +238,13 @@ fun MusiMindNavGraph(
         composable(Screen.Challenges.route) {
             ChallengesScreen(
                 onChallengeClick = { challengeId ->
-                    navController.navigate(Screen.Duel.createRoute(challengeId))
+                    when (challengeId) {
+                        "quiz_multiplayer" -> navController.navigate("quiz_multiplayer")
+                        "duel_random" -> navController.navigate(Screen.Duel.createRoute("random"))
+                        "group_room" -> navController.navigate("quiz_multiplayer") // Reuse multiplayer screen
+                        "speed_challenge" -> navController.navigate(Screen.DailyChallenge.route)
+                        else -> navController.navigate(Screen.Duel.createRoute(challengeId))
+                    }
                 }
             )
         }
@@ -241,6 +269,12 @@ fun MusiMindNavGraph(
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.Home.route) { inclusive = true }
                     }
+                },
+                onUpgrade = {
+                    navController.navigate(Screen.Paywall.createRoute("maestro"))
+                },
+                onManageSubscription = {
+                    navController.navigate(Screen.ManageSubscription.route)
                 }
             )
         }
@@ -343,7 +377,7 @@ fun MusiMindNavGraph(
         // Games Hub - Lista de todos os jogos
         composable(Screen.GamesHub.route) {
             com.musimind.presentation.games.GamesHubScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onGameSelect = { gameName ->
                     when (gameName) {
                         "note_catcher" -> navController.navigate(Screen.NoteCatcher.route)
@@ -367,7 +401,7 @@ fun MusiMindNavGraph(
         // Note Catcher Game
         composable(Screen.NoteCatcher.route) {
             com.musimind.presentation.games.NoteCatcherScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -375,7 +409,7 @@ fun MusiMindNavGraph(
         // Rhythm Tap Game
         composable(Screen.RhythmTap.route) {
             com.musimind.presentation.games.RhythmTapScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -383,7 +417,7 @@ fun MusiMindNavGraph(
         // Melody Memory Game
         composable(Screen.MelodyMemory.route) {
             com.musimind.presentation.games.MelodyMemoryScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -391,7 +425,7 @@ fun MusiMindNavGraph(
         // Interval Hero Game
         composable(Screen.IntervalHero.route) {
             com.musimind.presentation.games.IntervalHeroScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -399,7 +433,7 @@ fun MusiMindNavGraph(
         // Scale Puzzle Game
         composable(Screen.ScalePuzzle.route) {
             com.musimind.presentation.games.ScalePuzzleScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -407,7 +441,7 @@ fun MusiMindNavGraph(
         // Solfege Sing Game
         composable(Screen.SolfegeSing.route) {
             com.musimind.presentation.games.SolfegeSingScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -415,7 +449,7 @@ fun MusiMindNavGraph(
         // Chord Match Game
         composable(Screen.ChordMatch.route) {
             com.musimind.presentation.games.ChordMatchScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -423,7 +457,7 @@ fun MusiMindNavGraph(
         // Key Shooter Game
         composable(Screen.KeyShooter.route) {
             com.musimind.presentation.games.KeyShooterScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -431,7 +465,7 @@ fun MusiMindNavGraph(
         // Tempo Run Game
         composable(Screen.TempoRun.route) {
             com.musimind.presentation.games.TempoRunScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -439,7 +473,7 @@ fun MusiMindNavGraph(
         // Chord Builder Game
         composable(Screen.ChordBuilder.route) {
             com.musimind.presentation.games.ChordBuilderScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -447,7 +481,7 @@ fun MusiMindNavGraph(
         // Progression Quest Game
         composable(Screen.ProgressionQuest.route) {
             com.musimind.presentation.games.ProgressionQuestScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -455,8 +489,74 @@ fun MusiMindNavGraph(
         // Daily Challenge
         composable(Screen.DailyChallenge.route) {
             com.musimind.presentation.games.DailyChallengeScreen(
-                userId = "", // TODO: pegar do AuthManager
+                userId = currentUserId,
                 onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // =====================================================
+        // QUIZ MULTIPLAYER
+        // =====================================================
+        
+        // Quiz Multiplayer - Create/Join rooms
+        composable("quiz_multiplayer") {
+            com.musimind.presentation.games.multiplayer.QuizMultiplayerScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // =====================================================
+        // ASSESSMENTS (Teacher/School)
+        // =====================================================
+        
+        // Create Assessment
+        composable(Screen.CreateAssessment.route) {
+            com.musimind.presentation.teacher.CreateAssessmentScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+        
+        // Take Assessment
+        composable(Screen.TakeAssessment.route) { backStackEntry ->
+            val assessmentId = backStackEntry.arguments?.getString("assessmentId") ?: return@composable
+            com.musimind.presentation.assessment.TakeAssessmentScreen(
+                assessmentId = assessmentId,
+                onBack = { navController.popBackStack() },
+                onComplete = { score, total, passed ->
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        // =====================================================
+        // SUBSCRIPTION / PAYWALL
+        // =====================================================
+        
+        // Paywall Screen
+        composable(Screen.Paywall.route) { backStackEntry ->
+            val tierArg = backStackEntry.arguments?.getString("tier") ?: "maestro"
+            val highlightTier = when (tierArg) {
+                "spalla" -> com.musimind.domain.model.SubscriptionTier.SPALLA
+                else -> com.musimind.domain.model.SubscriptionTier.MAESTRO
+            }
+            com.musimind.presentation.subscription.PaywallScreen(
+                onBack = { navController.popBackStack() },
+                onSubscriptionComplete = {
+                    navController.popBackStack()
+                },
+                highlightTier = highlightTier
+            )
+        }
+        
+        // Manage Subscription
+        composable(Screen.ManageSubscription.route) {
+            // TODO: Implement ManageSubscriptionScreen
+            // For now, redirect to paywall
+            com.musimind.presentation.subscription.PaywallScreen(
+                onBack = { navController.popBackStack() },
+                onSubscriptionComplete = {
+                    navController.popBackStack()
+                }
             )
         }
     }

@@ -4,7 +4,8 @@ package com.musimind.navigation
  * Sealed class representing all navigation routes in MusiMind
  */
 sealed class Screen(val route: String) {
-    // Auth & Onboarding
+    // Language & Onboarding
+    data object LanguageSelection : Screen("language_selection")
     data object Splash : Screen("splash")
     data object Login : Screen("login")
     data object Register : Screen("register")
@@ -79,6 +80,19 @@ sealed class Screen(val route: String) {
     data object ChordBuilder : Screen("game/chord_builder")
     data object ProgressionQuest : Screen("game/progression_quest")
     data object DailyChallenge : Screen("game/daily_challenge")
+    
+    // Assessments
+    data object CreateAssessment : Screen("create_assessment")
+    data object TakeAssessment : Screen("take_assessment/{assessmentId}") {
+        fun createRoute(assessmentId: String) = "take_assessment/$assessmentId"
+    }
+    data object AssessmentList : Screen("assessment_list")
+    
+    // Subscription
+    data object Paywall : Screen("paywall/{tier}") {
+        fun createRoute(tier: String = "maestro") = "paywall/$tier"
+    }
+    data object ManageSubscription : Screen("manage_subscription")
     
     // Settings
     data object Settings : Screen("settings")

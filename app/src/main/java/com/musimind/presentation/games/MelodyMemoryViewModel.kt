@@ -16,6 +16,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 import kotlin.random.Random
+import com.musimind.music.audio.GameAudioManager
 
 /**
  * ViewModel para o jogo Melody Memory (Memória Melódica)
@@ -29,7 +30,8 @@ import kotlin.random.Random
  */
 @HiltViewModel
 class MelodyMemoryViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(MelodyMemoryState())
@@ -161,7 +163,8 @@ class MelodyMemoryViewModel @Inject constructor(
             for (note in melody) {
                 _state.update { it.copy(highlightedNote = note) }
                 
-                // TODO: Tocar o som da nota aqui usando áudio engine
+                // Tocar o som da nota usando audioManager
+                audioManager.playNote(note, noteDelay)
                 
                 delay(noteDelay)
                 

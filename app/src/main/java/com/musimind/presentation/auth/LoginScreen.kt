@@ -228,7 +228,11 @@ fun LoginScreen(
                     
                     // Forgot Password
                     TextButton(
-                        onClick = { /* TODO: Forgot password */ },
+                        onClick = { 
+                            if (email.isNotBlank()) {
+                                viewModel.forgotPassword(email)
+                            }
+                        },
                         modifier = Modifier.align(Alignment.End)
                     ) {
                         Text(

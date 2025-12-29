@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
+import com.musimind.music.audio.GameAudioManager
 
 /**
  * ViewModel para o jogo Tempo Run (Corrida do Andamento)
@@ -23,7 +24,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class TempoRunViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(TempoRunState())
@@ -149,8 +151,17 @@ class TempoRunViewModel @Inject constructor(
     private fun playTempo(bpm: Int) {
         viewModelScope.launch {
             _state.update { it.copy(isPlaying = true) }
-            // TODO: Tocar metrônomo ou música no tempo indicado
-            delay(3000) // Tocar por 3 segundos
+            
+            // Calcular intervalo entre batidas baseado no BPM
+            val intervalMs = 60000L / bpm
+            
+            // Tocar 8 batidas no tempo indicado
+            repeat(8) { beat ->
+                val isStrong = beat % 4 == 0
+                audioManager.playMetronomeTick(isStrong = isStrong)
+                delay(intervalMs)
+            }
+            
             _state.update { it.copy(isPlaying = false) }
         }
     }

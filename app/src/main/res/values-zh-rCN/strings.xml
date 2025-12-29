@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MusiMind</string>
+    
+    <!-- Language Selection -->
+    <string name="choose_language">选择您的语言</string>
+    <string name="learn_music_your_way">用你的方式学音乐</string>
+    <string name="you_will_use_notation">您将使用数字记谱法 (1-2-3)</string>
+    
+    <!-- Authentication -->
+    <string name="login">登录</string>
+    <string name="register">注册</string>
+    <string name="email">电子邮件</string>
+    <string name="password">密码</string>
+    <string name="confirm_password">确认密码</string>
+    <string name="full_name">全名</string>
+    <string name="phone">电话</string>
+    <string name="forgot_password">忘记密码？</string>
+    <string name="sign_in_with_google">使用Google登录</string>
+    <string name="sign_up_with_google">使用Google注册</string>
+    <string name="no_account">没有账户？</string>
+    <string name="already_have_account">已有账户？</string>
+    <string name="welcome_back">欢迎回来！</string>
+    <string name="create_account">创建账户</string>
+    
+    <!-- User Types -->
+    <string name="user_type_student">学生</string>
+    <string name="user_type_teacher">老师</string>
+    <string name="user_type_school">音乐学校</string>
+    <string name="select_user_type">选择您的身份</string>
+    <string name="user_type_student_description">我想以有趣的方式学习乐理</string>
+    <string name="user_type_teacher_description">我想跟踪学生的进度</string>
+    <string name="user_type_school_description">我想管理学生、老师和班级</string>
+    
+    <!-- Plans -->
+    <string name="select_plan">选择您的方案</string>
+    <string name="plan_freemium">免费</string>
+    <string name="plan_freemium_description">20%访问权限</string>
+    <string name="plan_spalla">Spalla</string>
+    <string name="plan_spalla_description">70%访问权限</string>
+    <string name="plan_maestro">Maestro</string>
+    <string name="plan_maestro_description">100%无限制</string>
+    <string name="upgrade">升级</string>
+    <string name="manage_subscription">管理订阅</string>
+    <string name="free_trial">7天免费试用</string>
+    <string name="cancel_anytime">随时取消</string>
+    <string name="most_popular">最受欢迎</string>
+    <string name="current_plan">当前方案</string>
+    <string name="unlock_everything">解锁全部</string>
+    <string name="limit_reached">已达上限！</string>
+    <string name="daily_limit_message">您今天的次数已用完</string>
+    <string name="come_back_tomorrow">明天再来或升级</string>
+    <string name="remaining_today">今日剩余%d次</string>
+    
+    <!-- Navigation -->
+    <string name="nav_home">学习路径</string>
+    <string name="nav_practice">练习</string>
+    <string name="nav_challenges">挑战</string>
+    <string name="nav_social">社交</string>
+    <string name="nav_profile">个人</string>
+    
+    <!-- Practice Categories -->
+    <string name="solfege">视唱练耳</string>
+    <string name="rhythmic_perception">节奏训练</string>
+    <string name="melodic_perception">旋律听写</string>
+    <string name="interval_perception">音程训练</string>
+    <string name="harmonic_progressions">和弦进行</string>
+    <string name="chord_recognition">和弦识别</string>
+    <string name="scale_recognition">音阶识别</string>
+    <string name="sight_reading">视奏</string>
+    <string name="ear_training">听力训练</string>
+    
+    <!-- Exercise -->
+    <string name="play">播放</string>
+    <string name="start_solfege">开始视唱</string>
+    <string name="octave_up">+1八度</string>
+    <string name="octave_normal">正常八度</string>
+    <string name="octave_down">-1八度</string>
+    <string name="repeat">重复</string>
+    <string name="next">下一个</string>
+    <string name="skip">跳过</string>
+    <string name="hint">提示</string>
+    <string name="show_answer">显示答案</string>
+    <string name="check">检查</string>
+    <string name="correct">正确！</string>
+    <string name="incorrect">错误</string>
+    <string name="try_again">再试一次</string>
+    <string name="great_job">做得好！</string>
+    <string name="keep_going">继续加油！</string>
+    <string name="almost_there">快完成了！</string>
+    <string name="exercise_complete">练习完成！</string>
+    
+    <!-- Games -->
+    <string name="games">游戏</string>
+    <string name="note_catcher">音符捕手</string>
+    <string name="rhythm_tap">节奏敲击</string>
+    <string name="solfege_sing">唱视唱</string>
+    <string name="interval_hero">音程英雄</string>
+    <string name="chord_builder">和弦构建</string>
+    <string name="melody_memory">旋律记忆</string>
+    <string name="scale_puzzle">音阶拼图</string>
+    <string name="daily_challenge">每日挑战</string>
+    <string name="high_score">最高分</string>
+    <string name="new_high_score">新纪录！</string>
+    <string name="score">分数</string>
+    <string name="time">时间</string>
+    <string name="lives_remaining">剩余生命</string>
+    <string name="game_over">游戏结束</string>
+    <string name="play_again">再玩一次</string>
+    
+    <!-- Multiplayer -->
+    <string name="multiplayer">多人游戏</string>
+    <string name="quiz_multiplayer">音乐问答</string>
+    <string name="create_room">创建房间</string>
+    <string name="join_room">加入房间</string>
+    <string name="room_code">房间代码</string>
+    <string name="waiting_for_players">等待玩家...</string>
+    <string name="players_ready">%d/%d玩家就绪</string>
+    <string name="start_game">开始游戏</string>
+    <string name="round">第%d轮</string>
+    <string name="winner">获胜者！</string>
+    <string name="you_won">你赢了！</string>
+    <string name="you_lost">你输了</string>
+    <string name="rematch">再来一局</string>
+    
+    <!-- Duels -->
+    <string name="duels">对决</string>
+    <string name="challenge_friend">挑战好友</string>
+    <string name="random_opponent">随机对手</string>
+    <string name="duel_in_progress">对决进行中</string>
+    <string name="your_turn">轮到你了！</string>
+    <string name="opponent_turn">对手回合</string>
+    <string name="waiting_opponent">等待对手...</string>
+    
+    <!-- Social -->
+    <string name="friends">好友</string>
+    <string name="add_friend">添加好友</string>
+    <string name="friend_requests">好友请求</string>
+    <string name="accept">接受</string>
+    <string name="decline">拒绝</string>
+    <string name="leaderboard">排行榜</string>
+    <string name="activity_feed">动态</string>
+    <string name="search_users">搜索用户...</string>
+    <string name="no_friends_yet">还没有好友</string>
+    <string name="invite_friends">邀请好友</string>
+    
+    <!-- Profile -->
+    <string name="profile">个人资料</string>
+    <string name="edit_profile">编辑资料</string>
+    <string name="statistics">统计</string>
+    <string name="achievements">成就</string>
+    <string name="total_xp">总经验值</string>
+    <string name="exercises_completed">完成练习</string>
+    <string name="days_streak">连续天数</string>
+    <string name="accuracy">准确率</string>
+    <string name="time_practiced">练习时长</string>
+    
+    <!-- Teacher -->
+    <string name="students">学生</string>
+    <string name="classes">班级</string>
+    <string name="assessments">测评</string>
+    <string name="create_assessment">创建测评</string>
+    <string name="student_progress">学生进度</string>
+    <string name="class_performance">班级表现</string>
+    <string name="assign_exercise">布置练习</string>
+    <string name="add_student">添加学生</string>
+    <string name="create_class">创建班级</string>
+    
+    <!-- Gamification -->
+    <string name="xp">经验值</string>
+    <string name="level">等级</string>
+    <string name="streak">连续</string>
+    <string name="days">天</string>
+    <string name="coins">金币</string>
+    <string name="lives">生命</string>
+    <string name="level_up">升级了！</string>
+    <string name="new_achievement">新成就！</string>
+    <string name="streak_protected">连续记录已保护！</string>
+    <string name="streak_lost">连续记录已中断</string>
+    
+    <!-- Settings -->
+    <string name="settings">设置</string>
+    <string name="language">语言</string>
+    <string name="change_language">更改语言</string>
+    <string name="notifications">通知</string>
+    <string name="daily_reminder">每日提醒</string>
+    <string name="sound_effects">音效</string>
+    <string name="vibration">振动</string>
+    <string name="dark_mode">深色模式</string>
+    <string name="about">关于</string>
+    <string name="privacy_policy">隐私政策</string>
+    <string name="terms_of_service">服务条款</string>
+    <string name="rate_app">评价应用</string>
+    <string name="contact_support">联系客服</string>
+    <string name="version">版本 %s</string>
+    
+    <!-- Common -->
+    <string name="continue_btn">继续</string>
+    <string name="loading">加载中...</string>
+    <string name="error">错误</string>
+    <string name="retry">重试</string>
+    <string name="cancel">取消</string>
+    <string name="ok">确定</string>
+    <string name="save">保存</string>
+    <string name="delete">删除</string>
+    <string name="edit">编辑</string>
+    <string name="logout">退出</string>
+    <string name="yes">是</string>
+    <string name="no">否</string>
+    <string name="back">返回</string>
+    <string name="close">关闭</string>
+    <string name="share">分享</string>
+    <string name="copy">复制</string>
+    <string name="done">完成</string>
+    <string name="confirm">确认</string>
+    <string name="are_you_sure">确定吗？</string>
+    
+    <!-- Feedback -->
+    <string name="excellent">太棒了！</string>
+    <string name="very_good">非常好！</string>
+    <string name="good">不错</string>
+    <string name="needs_practice">需要练习</string>
+    <string name="perfect_pitch">音准完美！</string>
+    <string name="slightly_sharp">稍高</string>
+    <string name="slightly_flat">稍低</string>
+    
+    <!-- Notifications -->
+    <string name="notification_channel_name">MusiMind</string>
+    <string name="notification_channel_description">MusiMind 通知</string>
+    <string name="daily_reminder_title">练习时间到！🎵</string>
+    <string name="daily_reminder_message">别让连续记录中断！继续你的音乐之旅。</string>
+    <string name="streak_reminder_title">你的%d天连续记录有风险！</string>
+    <string name="streak_reminder_message">现在练习来保持记录。</string>
+    
+    <!-- Errors -->
+    <string name="error_connection">连接错误，请检查网络。</string>
+    <string name="error_login">登录失败。</string>
+    <string name="error_register">注册失败。</string>
+    <string name="error_load_data">加载数据失败。</string>
+    <string name="error_save">保存失败。</string>
+    <string name="error_microphone">麦克风错误。</string>
+    <string name="error_permission_denied">权限被拒绝。</string>
+    
+    <!-- Microphone -->
+    <string name="microphone_permission_title">麦克风权限</string>
+    <string name="microphone_permission_message">MusiMind需要麦克风权限来进行视唱练习。</string>
+    <string name="grant_permission">允许</string>
+    
+</resources>

@@ -174,7 +174,7 @@ fun ChallengesScreen(
                 ) {
                     item {
                         ChallengeTypeCard(
-                            title = "Quiz Kahoot",
+                            title = "Quiz Multiplayer",
                             icon = Icons.Filled.Quiz,
                             playersOnline = 142,
                             color = Secondary,

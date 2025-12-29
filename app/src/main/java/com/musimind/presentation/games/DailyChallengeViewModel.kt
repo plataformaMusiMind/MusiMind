@@ -80,9 +80,8 @@ class DailyChallengeViewModel @Inject constructor(
                 )
             }
             
-            // Verificar se já completou hoje
-            // TODO: Buscar do servidor se já completou
-            val alreadyCompleted = false
+            // Verificar se já completou hoje buscando do servidor
+            val alreadyCompleted = checkIfCompletedToday(userId, today.toString())
             
             _state.update { 
                 it.copy(
@@ -98,6 +97,15 @@ class DailyChallengeViewModel @Inject constructor(
                     alreadyCompleted = alreadyCompleted
                 )
             }
+        }
+    }
+    
+    private suspend fun checkIfCompletedToday(userId: String, date: String): Boolean {
+        return try {
+            val result = gamesRepository.checkDailyChallengeCompleted(userId, date)
+            result.isSuccess && result.getOrNull() == true
+        } catch (e: Exception) {
+            false
         }
     }
     

@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
+import com.musimind.music.audio.GameAudioManager
 
 /**
  * ViewModel para o jogo Progression Quest (Missão das Progressões)
@@ -22,7 +23,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ProgressionQuestViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(ProgressionQuestState())
@@ -136,9 +138,11 @@ class ProgressionQuestViewModel @Inject constructor(
         viewModelScope.launch {
             _state.update { it.copy(isPlaying = true) }
             
-            degrees.forEachIndexed { index, _ ->
+            degrees.forEachIndexed { index, degree ->
                 _state.update { it.copy(currentChordPlaying = index) }
-                // TODO: Tocar cada acorde
+                // Tocar acorde baseado no grau
+                val chordName = degreeToChord(degree)
+                audioManager.playChordByName(chordName, octave = 4, durationMs = 700)
                 delay(800)
             }
             
@@ -217,6 +221,30 @@ class ProgressionQuestViewModel @Inject constructor(
                     coinsEarned = result?.coinsEarned ?: 0
                 )
             }
+        }
+    }
+    
+    /**
+     * Converte grau da escala para nome do acorde (em C maior por padrão)
+     */
+    private fun degreeToChord(degree: String): String {
+        return when (degree) {
+            "I" -> "C"
+            "II" -> "D"
+            "ii" -> "Dm"
+            "III" -> "E"
+            "iii" -> "Em"
+            "IV" -> "F"
+            "V" -> "G"
+            "VI" -> "A"
+            "vi" -> "Am"
+            "VII" -> "B"
+            "vii" -> "Bdim"
+            "bVII" -> "Bb"
+            "bVI" -> "Ab"
+            "bIII" -> "Eb"
+            "i" -> "Cm" // Para tonalidades menores
+            else -> "C"
         }
     }
     

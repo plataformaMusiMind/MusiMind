@@ -17,6 +17,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import java.util.UUID
 import javax.inject.Inject
 import kotlin.math.abs
+import com.musimind.music.audio.GameAudioManager
 
 /**
  * ViewModel para o jogo Rhythm Tap (Batida Perfeita)
@@ -30,7 +31,8 @@ import kotlin.math.abs
  */
 @HiltViewModel
 class RhythmTapViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(RhythmTapState())
@@ -193,9 +195,11 @@ class RhythmTapViewModel @Inject constructor(
                 
                 if (elapsed >= beats[beatIndex]) {
                     // "Tocar" a batida (feedback visual)
+                    val isStrong = beatIndex == 0 || (beatIndex % 4 == 0)
                     _state.update { it.copy(beatIndicatorIndex = beatIndex) }
                     
-                    // TODO: Tocar som de batida aqui
+                    // Tocar som de batida usando audioManager
+                    audioManager.playMetronomeTick(isStrong = isStrong)
                     
                     beatIndex++
                 }

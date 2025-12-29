@@ -17,7 +17,8 @@ import javax.inject.Singleton
 @Singleton
 class DuelRepository @Inject constructor(
     private val postgrest: Postgrest,
-    private val auth: Auth
+    private val auth: Auth,
+    private val realtime: Realtime
 ) {
     private val currentUserId: String? get() = auth.currentSessionOrNull()?.user?.id
     
@@ -148,21 +149,87 @@ class DuelRepository @Inject constructor(
     }
     
     /**
-     * Observe a duel in real-time
+     * Observe a duel in real-time using Supabase Realtime
+     * Falls back to polling if Realtime fails
      */
-    fun observeDuel(duelId: String): Flow<Duel?> = flow {
-        // TODO: Implement with Supabase Realtime for live updates
-        // For now, just fetch once
+    fun observeDuel(duelId: String): Flow<Duel?> = kotlinx.coroutines.flow.channelFlow {
+        // Initial fetch
+        var currentDuel = fetchDuel(duelId)
+        send(currentDuel)
+        
         try {
-            val duel = postgrest.from("duels")
+            // Create realtime channel
+            val channel = realtime.channel("duel_$duelId")
+            
+            // Subscribe to duel updates
+            val duelChanges = channel.postgresChangeFlow<io.github.jan.supabase.realtime.PostgresAction>(
+                schema = "public"
+            ) {
+                table = "duels"
+                filter = "id=eq.$duelId"
+            }
+            
+            // Subscribe to the channel
+            channel.subscribe()
+            
+            // Listen for changes
+            kotlinx.coroutines.launch {
+                duelChanges.collect { action ->
+                    when (action) {
+                        is io.github.jan.supabase.realtime.PostgresAction.Update,
+                        is io.github.jan.supabase.realtime.PostgresAction.Insert -> {
+                            val updatedDuel = fetchDuel(duelId)
+                            if (updatedDuel != currentDuel) {
+                                currentDuel = updatedDuel
+                                send(updatedDuel)
+                            }
+                            
+                            // Stop if duel is complete
+                            if (currentDuel?.status == DuelStatus.COMPLETED) {
+                                channel.unsubscribe()
+                            }
+                        }
+                        else -> { }
+                    }
+                }
+            }
+            
+            // Keep the flow alive until cancelled
+            kotlinx.coroutines.awaitCancellation()
+            
+        } catch (e: Exception) {
+            android.util.Log.w("DuelRepository", "Realtime failed, falling back to polling: ${e.message}")
+            
+            // Fallback to polling
+            while (true) {
+                kotlinx.coroutines.delay(2000)
+                
+                val updatedDuel = fetchDuel(duelId)
+                if (updatedDuel != currentDuel) {
+                    currentDuel = updatedDuel
+                    send(updatedDuel)
+                }
+                
+                // Stop observing if duel is complete
+                if (currentDuel?.status == DuelStatus.COMPLETED) {
+                    break
+                }
+            }
+        }
+    }
+    
+    /**
+     * Fetch duel from database
+     */
+    private suspend fun fetchDuel(duelId: String): Duel? {
+        return try {
+            postgrest.from("duels")
                 .select {
                     filter { eq("id", duelId) }
                 }
                 .decodeSingleOrNull<Duel>()
-            
-            emit(duel)
         } catch (e: Exception) {
-            emit(null)
+            null
         }
     }
     

@@ -2,6 +2,18 @@
 <resources>
     <string name="app_name">MusiMind</string>
     
+    <!-- Language Selection -->
+    <string name="choose_language">Escolha seu idioma</string>
+    <string name="language_hint">Escolha seu idioma • Elige tu idioma</string>
+    <string name="language_pt_br">Português (Brasil)</string>
+    <string name="language_en_us">English (US)</string>
+    <string name="language_es_es">Español</string>
+    <string name="language_de_de">Deutsch</string>
+    <string name="language_fr_fr">Français</string>
+    <string name="language_zh_cn">简体中文</string>
+    <string name="learn_music_your_way">Aprenda música do seu jeito</string>
+    <string name="you_will_use_notation">Você usará a notação Dó-Ré-Mi</string>
+    
     <!-- Authentication -->
     <string name="login">Entrar</string>
     <string name="register">Cadastrar</string>
@@ -15,6 +27,8 @@
     <string name="sign_up_with_google">Cadastrar com Google</string>
     <string name="no_account">Não tem uma conta?</string>
     <string name="already_have_account">Já tem uma conta?</string>
+    <string name="welcome_back">Bem-vindo de volta!</string>
+    <string name="create_account">Criar conta</string>
     
     <!-- User Types -->
     <string name="user_type_student">Aluno</string>
@@ -25,20 +39,27 @@
     <string name="user_type_teacher_description">Quero acompanhar o desempenho dos meus alunos</string>
     <string name="user_type_school_description">Quero gerenciar alunos, professores e turmas</string>
     
-    <!-- Plans -->
+    <!-- Plans / Subscription -->
     <string name="select_plan">Escolha seu plano</string>
-    <string name="plan_aprendiz">Aprendiz</string>
-    <string name="plan_aprendiz_price">Grátis</string>
+    <string name="plan_freemium">Gratuito</string>
+    <string name="plan_freemium_description">20% de acesso</string>
     <string name="plan_spalla">Spalla</string>
     <string name="plan_spalla_price">R$ 19,90/mês</string>
+    <string name="plan_spalla_description">70% de acesso</string>
     <string name="plan_maestro">Maestro</string>
     <string name="plan_maestro_price">R$ 29,90/mês</string>
-    <string name="continue_btn">Continuar</string>
-    
-    <!-- Avatar -->
-    <string name="select_avatar">Escolha seu avatar</string>
-    <string name="take_photo">Tirar foto</string>
-    <string name="choose_from_gallery">Escolher da galeria</string>
+    <string name="plan_maestro_description">100% ilimitado</string>
+    <string name="upgrade">Fazer Upgrade</string>
+    <string name="manage_subscription">Gerenciar Assinatura</string>
+    <string name="free_trial">7 dias grátis</string>
+    <string name="cancel_anytime">Cancele quando quiser</string>
+    <string name="most_popular">Mais popular</string>
+    <string name="current_plan">Plano atual</string>
+    <string name="unlock_everything">Desbloqueie tudo</string>
+    <string name="limit_reached">Limite atingido!</string>
+    <string name="daily_limit_message">Você usou todas as suas tentativas hoje</string>
+    <string name="come_back_tomorrow">Volte amanhã ou faça upgrade</string>
+    <string name="remaining_today">%d restantes hoje</string>
     
     <!-- Navigation -->
     <string name="nav_home">Trilha</string>
@@ -47,19 +68,112 @@
     <string name="nav_social">Social</string>
     <string name="nav_profile">Perfil</string>
     
-    <!-- Practice -->
+    <!-- Practice Categories -->
     <string name="solfege">Solfejo</string>
     <string name="rhythmic_perception">Percepção Rítmica</string>
     <string name="melodic_perception">Percepção Melódica</string>
     <string name="interval_perception">Percepção Intervalar</string>
     <string name="harmonic_progressions">Progressões Harmônicas</string>
+    <string name="chord_recognition">Reconhecimento de Acordes</string>
+    <string name="scale_recognition">Reconhecimento de Escalas</string>
+    <string name="sight_reading">Leitura à Primeira Vista</string>
+    <string name="ear_training">Treinamento Auditivo</string>
     
-    <!-- Exercise -->
+    <!-- Exercise Screen -->
     <string name="play">Ouvir</string>
     <string name="start_solfege">Iniciar Solfejo</string>
     <string name="octave_up">+1 Oitava</string>
     <string name="octave_normal">Oitava Normal</string>
     <string name="octave_down">-1 Oitava</string>
+    <string name="repeat">Repetir</string>
+    <string name="next">Próximo</string>
+    <string name="skip">Pular</string>
+    <string name="hint">Dica</string>
+    <string name="show_answer">Mostrar Resposta</string>
+    <string name="check">Verificar</string>
+    <string name="correct">Correto!</string>
+    <string name="incorrect">Incorreto</string>
+    <string name="try_again">Tente novamente</string>
+    <string name="great_job">Ótimo trabalho!</string>
+    <string name="keep_going">Continue assim!</string>
+    <string name="almost_there">Quase lá!</string>
+    <string name="exercise_complete">Exercício Completo!</string>
+    
+    <!-- Games -->
+    <string name="games">Jogos</string>
+    <string name="note_catcher">Pegue as Notas</string>
+    <string name="rhythm_tap">Ritmo Tap</string>
+    <string name="solfege_sing">Cante o Solfejo</string>
+    <string name="interval_hero">Herói dos Intervalos</string>
+    <string name="chord_builder">Construtor de Acordes</string>
+    <string name="melody_memory">Memória Melódica</string>
+    <string name="scale_puzzle">Puzzle de Escalas</string>
+    <string name="daily_challenge">Desafio Diário</string>
+    <string name="high_score">Recorde</string>
+    <string name="new_high_score">Novo Recorde!</string>
+    <string name="score">Pontuação</string>
+    <string name="time">Tempo</string>
+    <string name="lives_remaining">Vidas restantes</string>
+    <string name="game_over">Fim de Jogo</string>
+    <string name="play_again">Jogar Novamente</string>
+    
+    <!-- Multiplayer -->
+    <string name="multiplayer">Multiplayer</string>
+    <string name="quiz_multiplayer">Quiz Musical</string>
+    <string name="create_room">Criar Sala</string>
+    <string name="join_room">Entrar em Sala</string>
+    <string name="room_code">Código da Sala</string>
+    <string name="waiting_for_players">Aguardando jogadores...</string>
+    <string name="players_ready">%d/%d jogadores prontos</string>
+    <string name="start_game">Iniciar Jogo</string>
+    <string name="round">Rodada %d</string>
+    <string name="winner">Vencedor!</string>
+    <string name="you_won">Você venceu!</string>
+    <string name="you_lost">Você perdeu</string>
+    <string name="rematch">Revanche</string>
+    
+    <!-- Duels -->
+    <string name="duels">Duelos</string>
+    <string name="challenge_friend">Desafiar Amigo</string>
+    <string name="random_opponent">Oponente Aleatório</string>
+    <string name="duel_in_progress">Duelo em Andamento</string>
+    <string name="your_turn">Sua vez!</string>
+    <string name="opponent_turn">Vez do oponente</string>
+    <string name="waiting_opponent">Aguardando oponente...</string>
+    
+    <!-- Social -->
+    <string name="friends">Amigos</string>
+    <string name="add_friend">Adicionar Amigo</string>
+    <string name="friend_requests">Solicitações</string>
+    <string name="accept">Aceitar</string>
+    <string name="decline">Recusar</string>
+    <string name="leaderboard">Ranking</string>
+    <string name="activity_feed">Atividades</string>
+    <string name="search_users">Buscar usuários...</string>
+    <string name="no_friends_yet">Sem amigos ainda</string>
+    <string name="invite_friends">Convidar Amigos</string>
+    
+    <!-- Profile -->
+    <string name="profile">Perfil</string>
+    <string name="edit_profile">Editar Perfil</string>
+    <string name="statistics">Estatísticas</string>
+    <string name="achievements">Conquistas</string>
+    <string name="total_xp">XP Total</string>
+    <string name="exercises_completed">Exercícios Concluídos</string>
+    <string name="days_streak">Sequência de dias</string>
+    <string name="accuracy">Precisão</string>
+    <string name="time_practiced">Tempo de prática</string>
+    
+    <!-- Teacher -->
+    <string name="students">Alunos</string>
+    <string name="classes">Turmas</string>
+    <string name="assessments">Avaliações</string>
+    <string name="create_assessment">Criar Avaliação</string>
+    <string name="student_progress">Progresso do Aluno</string>
+    <string name="class_performance">Desempenho da Turma</string>
+    <string name="assign_exercise">Atribuir Exercício</string>
+    <string name="add_student">Adicionar Aluno</string>
+    <string name="create_class">Criar Turma</string>
     
     <!-- Gamification -->
     <string name="xp">XP</string>
@@ -68,8 +182,29 @@
     <string name="days">dias</string>
     <string name="coins">Moedas</string>
     <string name="lives">Vidas</string>
+    <string name="level_up">Subiu de Nível!</string>
+    <string name="new_achievement">Nova Conquista!</string>
+    <string name="streak_protected">Sequência protegida!</string>
+    <string name="streak_lost">Você perdeu sua sequência</string>
+    
+    <!-- Settings -->
+    <string name="settings">Configurações</string>
+    <string name="language">Idioma</string>
+    <string name="change_language">Alterar idioma</string>
+    <string name="notifications">Notificações</string>
+    <string name="daily_reminder">Lembrete diário</string>
+    <string name="sound_effects">Efeitos sonoros</string>
+    <string name="vibration">Vibração</string>
+    <string name="dark_mode">Modo escuro</string>
+    <string name="about">Sobre</string>
+    <string name="privacy_policy">Política de Privacidade</string>
+    <string name="terms_of_service">Termos de Uso</string>
+    <string name="rate_app">Avaliar app</string>
+    <string name="contact_support">Contato</string>
+    <string name="version">Versão %s</string>
     
     <!-- Common -->
+    <string name="continue_btn">Continuar</string>
     <string name="loading">Carregando...</string>
     <string name="error">Erro</string>
     <string name="retry">Tentar novamente</string>
@@ -78,12 +213,46 @@
     <string name="save">Salvar</string>
     <string name="delete">Excluir</string>
     <string name="edit">Editar</string>
-    <string name="settings">Configurações</string>
     <string name="logout">Sair</string>
+    <string name="yes">Sim</string>
+    <string name="no">Não</string>
+    <string name="back">Voltar</string>
+    <string name="close">Fechar</string>
+    <string name="share">Compartilhar</string>
+    <string name="copy">Copiar</string>
+    <string name="done">Concluído</string>
+    <string name="confirm">Confirmar</string>
+    <string name="are_you_sure">Tem certeza?</string>
+    
+    <!-- Feedback Messages -->
+    <string name="excellent">Excelente!</string>
+    <string name="very_good">Muito bom!</string>
+    <string name="good">Bom</string>
+    <string name="needs_practice">Precisa praticar</string>
+    <string name="perfect_pitch">Afinação perfeita!</string>
+    <string name="slightly_sharp">Um pouco agudo</string>
+    <string name="slightly_flat">Um pouco grave</string>
     
     <!-- Notifications -->
     <string name="notification_channel_name">MusiMind</string>
     <string name="notification_channel_description">Notificações do MusiMind</string>
     <string name="daily_reminder_title">Hora de praticar! 🎵</string>
     <string name="daily_reminder_message">Não perca sua sequência! Continue sua jornada musical hoje.</string>
+    <string name="streak_reminder_title">Sua sequência de %d dias está em risco!</string>
+    <string name="streak_reminder_message">Pratique agora para manter sua sequência.</string>
+    
+    <!-- Errors -->
+    <string name="error_connection">Erro de conexão. Verifique sua internet.</string>
+    <string name="error_login">Falha ao entrar. Verifique suas credenciais.</string>
+    <string name="error_register">Falha ao cadastrar. Tente novamente.</string>
+    <string name="error_load_data">Erro ao carregar dados.</string>
+    <string name="error_save">Erro ao salvar.</string>
+    <string name="error_microphone">Erro ao acessar microfone.</string>
+    <string name="error_permission_denied">Permissão negada.</string>
+    
+    <!-- Microphone Permission -->
+    <string name="microphone_permission_title">Permissão de Microfone</string>
+    <string name="microphone_permission_message">O MusiMind precisa acessar seu microfone para detectar sua voz durante exercícios de solfejo.</string>
+    <string name="grant_permission">Permitir</string>
+    
 </resources>

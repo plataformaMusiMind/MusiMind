@@ -300,6 +300,27 @@ class GamesRepository @Inject constructor(
         _currentGame.value = game
     }
     
+    /**
+     * Verifica se o desafio diário foi completado
+     */
+    suspend fun checkDailyChallengeCompleted(userId: String, date: String): Result<Boolean> {
+        return try {
+            val result = postgrest.from("game_daily_challenge_attempts")
+                .select {
+                    filter {
+                        eq("user_id", userId)
+                        gte("created_at", "${date}T00:00:00")
+                        lte("created_at", "${date}T23:59:59")
+                    }
+                }
+                .decodeList<DailyChallengeAttemptEntity>()
+            
+            Result.success(result.isNotEmpty())
+        } catch (e: Exception) {
+            Result.success(false) // Assume não completou se houver erro
+        }
+    }
+    
     companion object {
         // Mapeamento de jogos para funcionalidades existentes
         val GAME_TO_EXERCISE_MAPPING = mapOf(
@@ -339,4 +360,19 @@ data class UserNodeProgress(
     val nodeId: String,
     @kotlinx.serialization.SerialName("is_completed")
     val isCompleted: Boolean = false
+)
+
+/**
+ * Entidade para tentativas de desafio diário
+ */
+@kotlinx.serialization.Serializable
+data class DailyChallengeAttemptEntity(
+    val id: String,
+    @kotlinx.serialization.SerialName("user_id")
+    val userId: String,
+    @kotlinx.serialization.SerialName("challenge_id")
+    val challengeId: String? = null,
+    val score: Int = 0,
+    @kotlinx.serialization.SerialName("created_at")
+    val createdAt: String? = null
 )

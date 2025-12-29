@@ -43,10 +43,29 @@
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="portrait"
-            android:theme="@style/Theme.MusiMind">
+            android:theme="@style/Theme.MusiMind"
+            android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            
+            <!-- Deep Links for Stripe Subscription callbacks -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="musimind" android:host="subscription" />
+            </intent-filter>
+            
+            <!-- Deep Links for general app links -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="musimind" android:host="quiz" />
+                <data android:scheme="musimind" android:host="duel" />
+                <data android:scheme="musimind" android:host="profile" />
             </intent-filter>
         </activity>
 

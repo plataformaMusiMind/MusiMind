@@ -22,7 +22,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class ChordBuilderViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: com.musimind.music.audio.GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(ChordBuilderState())
@@ -178,7 +179,25 @@ class ChordBuilderViewModel @Inject constructor(
     fun playChord() {
         viewModelScope.launch {
             _state.update { it.copy(isPlayingChord = true) }
-            // TODO: Tocar o acorde via audio engine
+            
+            // Tocar o acorde correto usando GameAudioManager
+            val currentState = _state.value
+            val noteNames = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+            val rootNote = noteNames[currentState.rootNote]
+            val chordName = when (currentState.chordType) {
+                "M" -> rootNote
+                "m" -> "${rootNote}m"
+                "dim" -> "${rootNote}dim"
+                "aug" -> "${rootNote}aug"
+                "7" -> "${rootNote}7"
+                "M7" -> "${rootNote}maj7"
+                "m7" -> "${rootNote}m7"
+                "sus2" -> "${rootNote}sus2"
+                "sus4" -> "${rootNote}sus4"
+                else -> rootNote
+            }
+            
+            audioManager.playChordByName(chordName, octave = 4, durationMs = 1200)
             delay(1500)
             _state.update { it.copy(isPlayingChord = false) }
         }

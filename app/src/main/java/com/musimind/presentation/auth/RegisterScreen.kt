@@ -235,7 +235,7 @@ fun RegisterScreen(
                         value = password,
                         onValueChange = { password = it },
                         label = { Text("Senha") },
-                        placeholder = { Text("Mínimo 6 caracteres") },
+                        placeholder = { Text("Senha forte") },
                         leadingIcon = {
                             Icon(
                                 imageVector = Icons.Filled.Lock,
@@ -271,10 +271,17 @@ fun RegisterScreen(
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline
-                        )
+                        ),
+                        supportingText = {
+                            Text(
+                                text = "Mín. 6 caracteres: letras maiúsculas, minúsculas, números e símbolos",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     )
                     
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     
                     // Confirm Password Field
                     OutlinedTextField(

@@ -3,6 +3,7 @@ package com.musimind.presentation.games
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.musimind.domain.games.*
+import com.musimind.music.audio.GameAudioManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -28,7 +29,8 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class NoteCatcherViewModel @Inject constructor(
-    private val gamesRepository: GamesRepository
+    private val gamesRepository: GamesRepository,
+    private val audioManager: GameAudioManager
 ) : ViewModel() {
     
     private val _state = MutableStateFlow(NoteCatcherState())

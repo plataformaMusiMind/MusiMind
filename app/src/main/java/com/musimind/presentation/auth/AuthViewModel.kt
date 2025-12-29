@@ -123,6 +123,19 @@ class AuthViewModel @Inject constructor(
             return
         }
         
+        // Validação de senha forte: letras maiúsculas, minúsculas, números e símbolos
+        val hasUppercase = password.any { it.isUpperCase() }
+        val hasLowercase = password.any { it.isLowerCase() }
+        val hasDigit = password.any { it.isDigit() }
+        val hasSymbol = password.any { !it.isLetterOrDigit() }
+        
+        if (!hasUppercase || !hasLowercase || !hasDigit || !hasSymbol) {
+            _uiState.update { 
+                it.copy(errorMessage = "A senha deve conter letras maiúsculas, minúsculas, números e símbolos") 
+            }
+            return
+        }
+        
         if (password != confirmPassword) {
             _uiState.update { it.copy(errorMessage = "As senhas não coincidem") }
             return
@@ -180,14 +193,102 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Sign in with Google (placeholder - needs OAuth configuration)
+     * Sign in with Google using Supabase OAuth
+     * Note: Requires Google provider to be configured in Supabase Dashboard
+     * Go to: https://supabase.com/dashboard/project/qspzqkyiemjtrlupfzuq/auth/providers
      */
     fun signInWithGoogle(activityContext: android.content.Context) {
-        _uiState.update { 
-            it.copy(errorMessage = "Login com Google em breve! Use email/senha por enquanto.") 
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            
+            try {
+                // Use Supabase OAuth flow for Google
+                // This will open a browser for Google authentication
+                auth.signInWith(io.github.jan.supabase.auth.providers.Google) {
+                    // OAuth configuration
+                    // The redirect URL should be configured in Supabase dashboard
+                }
+                
+                val session = auth.currentSessionOrNull()
+                val userId = session?.user?.id
+                
+                if (userId != null) {
+                    val userExists = userRepository.userExists(userId)
+                    
+                    if (!userExists) {
+                        // Create new user profile for Google sign-in
+                        val googleUser = User(
+                            authId = userId,
+                            email = session.user?.email ?: "",
+                            fullName = session.user?.userMetadata?.get("full_name")?.toString() 
+                                ?: session.user?.email?.substringBefore('@') ?: "Usuário",
+                            avatarUrl = session.user?.userMetadata?.get("avatar_url")?.toString(),
+                            authProvider = AuthProvider.GOOGLE
+                        )
+                        userRepository.createOrUpdateUser(googleUser)
+                    }
+                    
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false, 
+                            isLoginSuccess = true,
+                            isNewUser = !userExists
+                        )
+                    }
+                } else {
+                    _uiState.update { 
+                        it.copy(
+                            isLoading = false, 
+                            errorMessage = "Login com Google cancelado"
+                        ) 
+                    }
+                }
+            } catch (e: Exception) {
+                val errorMessage = when {
+                    e.message?.contains("OAuth") == true -> 
+                        "Erro de configuração OAuth. Verifique o Supabase Dashboard."
+                    e.message?.contains("cancelled") == true -> 
+                        "Login cancelado pelo usuário"
+                    e.message?.contains("network") == true -> 
+                        "Erro de conexão. Verifique sua internet."
+                    else -> "Erro ao fazer login com Google: ${e.message}"
+                }
+                _uiState.update { it.copy(isLoading = false, errorMessage = errorMessage) }
+            }
         }
-        // TODO: Implement Supabase OAuth with Google
-        // Will require additional configuration in Supabase dashboard
+    }
+
+    /**
+     * Send password reset email
+     */
+    fun forgotPassword(email: String) {
+        if (!validateEmail(email)) {
+            _uiState.update { it.copy(errorMessage = "E-mail inválido") }
+            return
+        }
+        
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            
+            try {
+                auth.resetPasswordForEmail(email)
+                _uiState.update { 
+                    it.copy(
+                        isLoading = false, 
+                        errorMessage = "✉️ E-mail de recuperação enviado! Verifique sua caixa de entrada."
+                    ) 
+                }
+            } catch (e: Exception) {
+                val errorMessage = when {
+                    e.message?.contains("not found") == true -> 
+                        "E-mail não encontrado"
+                    e.message?.contains("rate limit") == true -> 
+                        "Muitas tentativas. Aguarde alguns minutos."
+                    else -> "Erro ao enviar e-mail: ${e.message}"
+                }
+                _uiState.update { it.copy(isLoading = false, errorMessage = errorMessage) }
+            }
+        }
     }
 
     /**
