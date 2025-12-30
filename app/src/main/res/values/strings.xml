@@ -124,7 +124,7 @@
     <string name="join_room">Entrar em Sala</string>
     <string name="room_code">Código da Sala</string>
     <string name="waiting_for_players">Aguardando jogadores...</string>
-    <string name="players_ready">%d/%d jogadores prontos</string>
+    <string name="players_ready">%1$d/%2$d jogadores prontos</string>
     <string name="start_game">Iniciar Jogo</string>
     <string name="round">Rodada %d</string>
     <string name="winner">Vencedor!</string>
@@ -191,17 +191,33 @@
     <string name="settings">Configurações</string>
     <string name="language">Idioma</string>
     <string name="change_language">Alterar idioma</string>
+    <string name="change_app_language">Alterar idioma do app</string>
     <string name="notifications">Notificações</string>
+    <string name="manage_notifications">Gerenciar notificações</string>
     <string name="daily_reminder">Lembrete diário</string>
     <string name="sound_effects">Efeitos sonoros</string>
     <string name="vibration">Vibração</string>
     <string name="dark_mode">Modo escuro</string>
+    <string name="theme">Tema</string>
+    <string name="light_dark_mode">Modo claro/escuro</string>
+    <string name="appearance">Aparência</string>
+    <string name="account">Conta</string>
+    <string name="privacy">Privacidade</string>
+    <string name="privacy_settings">Configurações de privacidade</string>
     <string name="about">Sobre</string>
     <string name="privacy_policy">Política de Privacidade</string>
     <string name="terms_of_service">Termos de Uso</string>
     <string name="rate_app">Avaliar app</string>
     <string name="contact_support">Contato</string>
     <string name="version">Versão %s</string>
+    <string name="logout_description">Sair da sua conta</string>
+    <string name="logout_confirmation">Tem certeza que deseja sair?</string>
+    
+    <!-- Edit Profile (additional strings) -->
+    <string name="phone_optional">Telefone (opcional)</string>
+    <string name="bio">Sobre mim</string>
+    <string name="profile_privacy_info">Seu perfil é visível apenas para seus amigos.</string>
+
     
     <!-- Common -->
     <string name="continue_btn">Continuar</string>

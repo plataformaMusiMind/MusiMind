@@ -242,7 +242,7 @@ class TheoryLessonViewModel @Inject constructor(
                         title = exercise?.title ?: "Lição de Teoria",
                         description = exercise?.description ?: "Aprenda mais sobre teoria musical",
                         xpReward = exercise?.xpReward ?: 10,
-                        content = theoryContent ?: generateDefaultContent(exercise?.title, exercise?.category)
+                        content = theoryContent ?: generateDefaultContent(exercise?.title, exercise?.category?.name?.lowercase())
                     )
                 }
             } catch (e: Exception) {

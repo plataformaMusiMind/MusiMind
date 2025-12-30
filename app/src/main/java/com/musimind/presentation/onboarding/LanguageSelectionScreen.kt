@@ -6,38 +6,46 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.musimind.R
 import com.musimind.domain.locale.AppLanguage
 import com.musimind.ui.theme.Primary
 import com.musimind.ui.theme.PrimaryVariant
 import com.musimind.ui.theme.XpGold
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
  * Language Selection Screen
  * 
+ * Premium design with beautiful animations.
  * Shown BEFORE login on first app launch.
- * Beautiful, musical-themed language picker.
  */
 @Composable
 fun LanguageSelectionScreen(
@@ -47,97 +55,193 @@ fun LanguageSelectionScreen(
     val state by viewModel.state.collectAsState()
     val scope = rememberCoroutineScope()
     
-    // Animated background notes
+    // Animated background elements
     val infiniteTransition = rememberInfiniteTransition(label = "bg")
-    val noteOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.15f,
         animationSpec = infiniteRepeatable(
-            animation = tween(20000, easing = LinearEasing),
+            animation = tween(2000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+    
+    val gradientOffset by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(8000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "noteRotation"
+        label = "gradient"
+    )
+    
+    // Dynamic gradient colors
+    val gradientColors = listOf(
+        Primary.copy(alpha = 0.08f),
+        PrimaryVariant.copy(alpha = 0.12f),
+        Primary.copy(alpha = 0.05f),
+        Color(0xFF6B48FF).copy(alpha = 0.08f)
     )
     
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.surface,
-                        Primary.copy(alpha = 0.05f),
-                        MaterialTheme.colorScheme.surface
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.background)
     ) {
+        // Animated background circles
+        Box(
+            modifier = Modifier
+                .size(400.dp)
+                .offset(x = (-100).dp, y = (-50).dp)
+                .scale(pulseScale)
+                .blur(100.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            Primary.copy(alpha = 0.15f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+        
+        Box(
+            modifier = Modifier
+                .size(300.dp)
+                .align(Alignment.BottomEnd)
+                .offset(x = 100.dp, y = 100.dp)
+                .scale(1.2f - (pulseScale - 1f))
+                .blur(80.dp)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            PrimaryVariant.copy(alpha = 0.12f),
+                            Color.Transparent
+                        )
+                    ),
+                    shape = CircleShape
+                )
+        )
+        
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(60.dp))
+            Spacer(modifier = Modifier.height(40.dp))
             
-            // Logo with animation
-            Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(listOf(Primary, PrimaryVariant))
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MusicNote,
-                    contentDescription = null,
-                    modifier = Modifier.size(50.dp),
-                    tint = Color.White
+            // Animated Logo with glow effect
+            Box(contentAlignment = Alignment.Center) {
+                // Glow effect
+                Box(
+                    modifier = Modifier
+                        .size(130.dp)
+                        .scale(pulseScale)
+                        .blur(25.dp)
+                        .background(
+                            brush = Brush.radialGradient(
+                                colors = listOf(
+                                    Primary.copy(alpha = 0.6f),
+                                    Color.Transparent
+                                )
+                            ),
+                            shape = CircleShape
+                        )
                 )
+                
+                // Main logo circle
+                Card(
+                    modifier = Modifier
+                        .size(110.dp)
+                        .shadow(
+                            elevation = 20.dp,
+                            shape = CircleShape,
+                            ambientColor = Primary,
+                            spotColor = Primary
+                        ),
+                    shape = CircleShape,
+                    colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                brush = Brush.linearGradient(
+                                    colors = listOf(Primary, PrimaryVariant)
+                                )
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MusicNote,
+                            contentDescription = null,
+                            modifier = Modifier.size(55.dp),
+                            tint = Color.White
+                        )
+                    }
+                }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
             
-            // Title
+            // Title with gradient effect
             Text(
                 text = "MusiMind",
                 style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = Primary
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 36.sp
             )
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            // Subtitle in multiple languages
+            // Animated subtitle
             AnimatedLanguageSubtitle()
             
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(40.dp))
             
-            // Language prompt
-            Text(
-                text = "Choose your language",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            // Language selector header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = null,
+                    tint = Primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = "Choose your language",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
             
             Text(
                 text = "Escolha seu idioma • Elige tu idioma",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
             )
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
             
-            // Language Grid
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.weight(1f)
+            // Language List
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(AppLanguage.entries.toList()) { language ->
                     LanguageCard(
@@ -148,48 +252,85 @@ fun LanguageSelectionScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
-            // Continue button
-            Button(
-                onClick = {
-                    scope.launch {
-                        viewModel.confirmSelection()
-                        onLanguageSelected()
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                enabled = state.selectedLanguage != null,
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Primary
-                )
-            ) {
-                Text(
-                    text = getContinueText(state.selectedLanguage),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Musical note hint
+            // Continue button with premium style
             AnimatedVisibility(
                 visible = state.selectedLanguage != null,
-                enter = fadeIn() + slideInVertically { it }
+                enter = fadeIn() + slideInVertically { it / 2 },
+                exit = fadeOut() + slideOutVertically { it / 2 }
             ) {
-                Text(
-                    text = getMusicalHint(state.selectedLanguage),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                viewModel.confirmSelection()
+                                onLanguageSelected()
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp)
+                            .shadow(
+                                elevation = 12.dp,
+                                shape = RoundedCornerShape(20.dp),
+                                ambientColor = Primary.copy(alpha = 0.4f),
+                                spotColor = Primary.copy(alpha = 0.4f)
+                            ),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Primary
+                        ),
+                        contentPadding = PaddingValues(horizontal = 32.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = getContinueText(state.selectedLanguage),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Icon(
+                                imageVector = Icons.Default.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Musical notation hint
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = getMusicalHint(state.selectedLanguage),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }
@@ -202,87 +343,124 @@ private fun LanguageCard(
 ) {
     val scale by animateFloatAsState(
         targetValue = if (isSelected) 1.02f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        ),
         label = "scale"
     )
     
-    val borderColor by animateColorAsState(
-        targetValue = if (isSelected) Primary else Color.Transparent,
+    val borderWidth by animateDpAsState(
+        targetValue = if (isSelected) 2.5.dp else 0.dp,
         label = "border"
+    )
+    
+    val elevation by animateDpAsState(
+        targetValue = if (isSelected) 8.dp else 2.dp,
+        label = "elevation"
     )
     
     Card(
         modifier = Modifier
             .scale(scale)
             .fillMaxWidth()
-            .aspectRatio(1.3f)
-            .border(
-                width = if (isSelected) 3.dp else 0.dp,
-                color = borderColor,
-                shape = RoundedCornerShape(20.dp)
+            .shadow(
+                elevation = elevation,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = if (isSelected) Primary.copy(alpha = 0.3f) else Color.Transparent,
+                spotColor = if (isSelected) Primary.copy(alpha = 0.3f) else Color.Transparent
+            )
+            .then(
+                if (isSelected) {
+                    Modifier.border(
+                        width = borderWidth,
+                        brush = Brush.linearGradient(
+                            colors = listOf(Primary, PrimaryVariant)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                } else {
+                    Modifier
+                }
             )
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isSelected) 
                 Primary.copy(alpha = 0.1f) 
             else 
-                MaterialTheme.colorScheme.surfaceVariant
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 8.dp else 2.dp
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
         )
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Flag emoji with background
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isSelected)
+                            Primary.copy(alpha = 0.15f)
+                        else
+                            MaterialTheme.colorScheme.surface
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = language.flag,
+                    fontSize = 28.sp
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Language name and tradition hint
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = language.nativeName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                    color = if (isSelected) Primary else MaterialTheme.colorScheme.onSurface
+                )
+                
+                Spacer(modifier = Modifier.height(2.dp))
+                
+                Text(
+                    text = getMusicalTraditionHint(language),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
             // Selection indicator
-            if (isSelected) {
+            AnimatedVisibility(
+                visible = isSelected,
+                enter = scaleIn() + fadeIn(),
+                exit = scaleOut() + fadeOut()
+            ) {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(24.dp)
+                        .size(28.dp)
                         .clip(CircleShape)
-                        .background(Primary),
+                        .background(
+                            brush = Brush.linearGradient(
+                                colors = listOf(Primary, PrimaryVariant)
+                            )
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(18.dp),
                         tint = Color.White
                     )
                 }
-            }
-            
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                // Flag emoji
-                Text(
-                    text = language.flag,
-                    fontSize = 48.sp
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Native name
-                Text(
-                    text = language.nativeName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isSelected) Primary else MaterialTheme.colorScheme.onSurface
-                )
-                
-                // Musical tradition hint
-                Text(
-                    text = getMusicalTraditionHint(language),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
             }
         }
     }
@@ -303,7 +481,7 @@ private fun AnimatedLanguageSubtitle() {
     
     LaunchedEffect(Unit) {
         while (true) {
-            kotlinx.coroutines.delay(2500)
+            delay(2500)
             currentIndex = (currentIndex + 1) % subtitles.size
         }
     }
@@ -311,10 +489,10 @@ private fun AnimatedLanguageSubtitle() {
     AnimatedContent(
         targetState = subtitles[currentIndex],
         transitionSpec = {
-            fadeIn(animationSpec = tween(500)) + 
-            slideInVertically { -it / 2 } togetherWith 
-            fadeOut(animationSpec = tween(500)) + 
-            slideOutVertically { it / 2 }
+            (fadeIn(animationSpec = tween(600)) + 
+             slideInVertically { -it / 3 }) togetherWith 
+            (fadeOut(animationSpec = tween(400)) + 
+             slideOutVertically { it / 3 })
         },
         label = "subtitle"
     ) { text ->
@@ -322,19 +500,20 @@ private fun AnimatedLanguageSubtitle() {
             text = text,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.Medium
         )
     }
 }
 
 private fun getMusicalTraditionHint(language: AppLanguage): String {
     return when (language) {
-        AppLanguage.PORTUGUESE_BR -> "Dó-Ré-Mi"
-        AppLanguage.ENGLISH_US -> "C-D-E"
-        AppLanguage.SPANISH -> "Do-Re-Mi"
-        AppLanguage.GERMAN -> "C-D-E-H"
-        AppLanguage.FRENCH -> "Do-Ré-Mi"
-        AppLanguage.CHINESE_SIMPLIFIED -> "1-2-3"
+        AppLanguage.PORTUGUESE_BR -> "Notação: Dó-Ré-Mi-Fá-Sol-Lá-Si"
+        AppLanguage.ENGLISH_US -> "Notation: C-D-E-F-G-A-B"
+        AppLanguage.SPANISH -> "Notación: Do-Re-Mi-Fa-Sol-La-Si"
+        AppLanguage.GERMAN -> "Notation: C-D-E-F-G-A-H"
+        AppLanguage.FRENCH -> "Notation: Do-Ré-Mi-Fa-Sol-La-Si"
+        AppLanguage.CHINESE_SIMPLIFIED -> "记谱法: 1-2-3-4-5-6-7"
     }
 }
 
@@ -352,9 +531,9 @@ private fun getContinueText(language: AppLanguage?): String {
 
 private fun getMusicalHint(language: AppLanguage?): String {
     return when (language) {
-        AppLanguage.PORTUGUESE_BR -> "🎵 Você usará a notação Dó-Ré-Mi"
-        AppLanguage.ENGLISH_US -> "🎵 You'll use letter notation (C-D-E)"
-        AppLanguage.SPANISH -> "🎵 Usarás la notación Do-Re-Mi"
+        AppLanguage.PORTUGUESE_BR -> "🎵 Você usará a notação Dó-Ré-Mi (solfejo fixo)"
+        AppLanguage.ENGLISH_US -> "🎵 You'll use letter notation C-D-E (movable Do)"
+        AppLanguage.SPANISH -> "🎵 Usarás la notación Do-Re-Mi (solfeo fijo)"
         AppLanguage.GERMAN -> "🎵 Du verwendest C-D-E-H Notation"
         AppLanguage.FRENCH -> "🎵 Vous utiliserez la notation Do-Ré-Mi"
         AppLanguage.CHINESE_SIMPLIFIED -> "🎵 您将使用数字记谱法 (1-2-3)"

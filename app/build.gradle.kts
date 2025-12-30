@@ -153,6 +153,13 @@ dependencies {
     // Firebase Messaging (for push notifications - optional)
     // Uncomment when Firebase is configured
     // implementation(libs.firebase.messaging)
+    
+    // Google Sign-In (Credential Manager - Native)
+    implementation(libs.credentials)
+    implementation(libs.credentials.play.services.auth)
+    implementation(libs.googleid)
+    implementation(libs.play.services.auth)
+    implementation(libs.kotlinx.coroutines.play.services)
 
     // Audio Processing - SoundFont parsing is done in pure Kotlin (SoundFontPlayer.kt)
 

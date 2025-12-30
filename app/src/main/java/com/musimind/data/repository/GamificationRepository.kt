@@ -266,6 +266,109 @@ class GamificationRepository @Inject constructor(
             )
         )
     }
+    
+    /**
+     * Get user statistics for profile
+     */
+    suspend fun getUserStatistics(userId: String): UserStatistics {
+        return try {
+            val stats = postgrest.from("user_stats")
+                .select { filter { eq("user_id", userId) } }
+                .decodeSingleOrNull<UserStatsEntity>()
+            
+            stats?.toUserStatistics() ?: UserStatistics()
+        } catch (e: Exception) {
+            UserStatistics()
+        }
+    }
+    
+    /**
+     * Get recent unlocked achievements
+     */
+    suspend fun getRecentAchievements(userId: String, limit: Int): List<AchievementInfo> {
+        return try {
+            val userAchievements = postgrest.from("user_achievements")
+                .select {
+                    filter { eq("user_id", userId) }
+                    order("unlocked_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                    limit(limit.toLong())
+                }
+                .decodeList<UserAchievementEntity>()
+            
+            userAchievements.mapNotNull { ua ->
+                try {
+                    val achievement = postgrest.from("achievements")
+                        .select { filter { eq("id", ua.achievementId) } }
+                        .decodeSingleOrNull<AchievementEntity>()
+                    
+                    achievement?.let {
+                        AchievementInfo(
+                            id = it.id,
+                            name = it.name,
+                            displayName = it.displayName ?: it.name,
+                            description = it.description ?: "",
+                            icon = it.icon ?: "emoji_events"
+                        )
+                    }
+                } catch (e: Exception) { null }
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+}
+
+/**
+ * User statistics data class
+ */
+data class UserStatistics(
+    val totalStudyTimeMinutes: Int = 0,
+    val exercisesCompleted: Int = 0,
+    val accuracyRate: Float = 0f,
+    val duelsWon: Int = 0,
+    val duelsPlayed: Int = 0,
+    val longestStreak: Int = 0
+)
+
+/**
+ * Achievement info for display
+ */
+data class AchievementInfo(
+    val id: String,
+    val name: String,
+    val displayName: String,
+    val description: String,
+    val icon: String
+)
+
+/**
+ * Entity for user_stats table
+ */
+@kotlinx.serialization.Serializable
+data class UserStatsEntity(
+    @kotlinx.serialization.SerialName("user_id")
+    val userId: String = "",
+    @kotlinx.serialization.SerialName("total_study_time_minutes")
+    val totalStudyTimeMinutes: Int = 0,
+    @kotlinx.serialization.SerialName("exercises_completed")
+    val exercisesCompleted: Int = 0,
+    @kotlinx.serialization.SerialName("accuracy_rate")
+    val accuracyRate: Float = 0f,
+    @kotlinx.serialization.SerialName("duels_won")
+    val duelsWon: Int = 0,
+    @kotlinx.serialization.SerialName("duels_played")
+    val duelsPlayed: Int = 0,
+    @kotlinx.serialization.SerialName("longest_streak")
+    val longestStreak: Int = 0
+) {
+    fun toUserStatistics() = UserStatistics(
+        totalStudyTimeMinutes = totalStudyTimeMinutes,
+        exercisesCompleted = exercisesCompleted,
+        accuracyRate = accuracyRate,
+        duelsWon = duelsWon,
+        duelsPlayed = duelsPlayed,
+        longestStreak = longestStreak
+    )
 }
 
 /**

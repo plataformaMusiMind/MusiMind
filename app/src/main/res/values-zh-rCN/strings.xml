@@ -115,7 +115,7 @@
     <string name="join_room">加入房间</string>
     <string name="room_code">房间代码</string>
     <string name="waiting_for_players">等待玩家...</string>
-    <string name="players_ready">%d/%d玩家就绪</string>
+    <string name="players_ready">%1$d/%2$d玩家就绪</string>
     <string name="start_game">开始游戏</string>
     <string name="round">第%d轮</string>
     <string name="winner">获胜者！</string>

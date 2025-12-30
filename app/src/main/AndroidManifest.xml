@@ -37,6 +37,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.MusiMind"
+        android:localeConfig="@xml/locales_config"
         tools:targetApi="34">
 
         <activity
@@ -56,6 +57,14 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="musimind" android:host="subscription" />
+            </intent-filter>
+            
+            <!-- Deep Link for OAuth callback (Google Login) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="musimind" android:host="auth" />
             </intent-filter>
             
             <!-- Deep Links for general app links -->
@@ -105,6 +114,16 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        
+        <!-- Required for per-app language preferences on Android 12 and below -->
+        <service
+            android:name="androidx.appcompat.app.AppLocalesMetadataHolderService"
+            android:enabled="false"
+            android:exported="false">
+            <meta-data
+                android:name="autoStoreLocales"
+                android:value="true" />
+        </service>
 
     </application>
 

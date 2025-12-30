@@ -28,42 +28,42 @@ enum class AppLanguage(
     val musicalNotation: MusicalNotation
 ) {
     PORTUGUESE_BR(
-        code = "pt-BR",
+        code = "pt",
         displayName = "Portuguese (Brazil)",
         nativeName = "Português (Brasil)",
         flag = "🇧🇷",
         musicalNotation = MusicalNotation.LATIN_FIXED
     ),
     ENGLISH_US(
-        code = "en-US",
+        code = "en",
         displayName = "English (US)",
         nativeName = "English (US)",
         flag = "🇺🇸",
         musicalNotation = MusicalNotation.LETTER_MOVABLE
     ),
     SPANISH(
-        code = "es-ES",
+        code = "es",
         displayName = "Spanish",
         nativeName = "Español",
         flag = "🇪🇸",
         musicalNotation = MusicalNotation.LATIN_FIXED
     ),
     GERMAN(
-        code = "de-DE",
+        code = "de",
         displayName = "German",
         nativeName = "Deutsch",
         flag = "🇩🇪",
         musicalNotation = MusicalNotation.GERMAN
     ),
     FRENCH(
-        code = "fr-FR",
+        code = "fr",
         displayName = "French",
         nativeName = "Français",
         flag = "🇫🇷",
         musicalNotation = MusicalNotation.LATIN_FIXED
     ),
     CHINESE_SIMPLIFIED(
-        code = "zh-CN",
+        code = "zh",
         displayName = "Chinese (Simplified)",
         nativeName = "简体中文",
         flag = "🇨🇳",
@@ -74,18 +74,19 @@ enum class AppLanguage(
         get() = Locale.forLanguageTag(code)
     
     val languageTag: String
-        get() = code.replace("-", "_")
+        get() = code
     
     companion object {
         fun fromCode(code: String): AppLanguage {
+            // Busca por código exato ou pelo código base da linguagem
             return entries.find { it.code == code || it.languageTag == code }
+                ?: entries.find { code.startsWith(it.code) || it.code.startsWith(code.take(2)) }
                 ?: PORTUGUESE_BR
         }
         
         fun fromLocale(locale: Locale): AppLanguage {
-            val tag = locale.toLanguageTag()
-            return entries.find { it.code == tag }
-                ?: entries.find { it.code.startsWith(locale.language) }
+            val language = locale.language // Código base (ex: "en", "pt")
+            return entries.find { it.code == language }
                 ?: PORTUGUESE_BR
         }
     }

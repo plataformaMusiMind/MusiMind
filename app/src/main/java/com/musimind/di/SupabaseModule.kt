@@ -11,6 +11,8 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.realtime.realtime
 import io.github.jan.supabase.storage.Storage
 import io.github.jan.supabase.storage.storage
 import javax.inject.Singleton
@@ -29,9 +31,14 @@ object SupabaseModule {
             supabaseUrl = BuildConfig.SUPABASE_URL,
             supabaseKey = BuildConfig.SUPABASE_ANON_KEY
         ) {
-            install(Auth)
+            install(Auth) {
+                // Configure deep link scheme for OAuth callback
+                scheme = "musimind"
+                host = "auth"
+            }
             install(Postgrest)
             install(Storage)
+            install(Realtime)
         }
     }
 
@@ -51,5 +58,11 @@ object SupabaseModule {
     @Singleton
     fun provideSupabaseStorage(client: SupabaseClient): Storage {
         return client.storage
+    }
+
+    @Provides
+    @Singleton
+    fun provideSupabaseRealtime(client: SupabaseClient): Realtime {
+        return client.realtime
     }
 }

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Theme.Material3.DayNight.NoActionBar inherits from AppCompat, supporting per-app locales -->
     <style name="Theme.MusiMind" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Primary colors -->
         <item name="colorPrimary">@color/primary</item>

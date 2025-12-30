@@ -22,7 +22,7 @@ material = "1.11.0"
 splashscreen = "1.0.1"
 
 # Dependency Injection
-hilt = "2.50"
+hilt = "2.51.1"
 hiltNavigationCompose = "1.1.0"
 
 # Networking & Serialization
@@ -54,6 +54,11 @@ workManager = "2.9.0"
 
 # Firebase (opcional - para push notifications)
 firebaseMessaging = "24.0.0"
+
+# Google Sign-In (Credential Manager)
+credentialsPlayServicesAuth = "1.3.0"
+googleid = "1.1.1"
+playServicesAuth = "21.0.0"
 
 # Testing
 junit = "4.13.2"
@@ -127,6 +132,12 @@ work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version
 
 # Firebase Messaging (para push notifications)
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging-ktx", version.ref = "firebaseMessaging" }
+
+# Google Sign-In (Credential Manager - Native Google Sign-In)
+credentials-play-services-auth = { group = "androidx.credentials", name = "credentials-play-services-auth", version.ref = "credentialsPlayServicesAuth" }
+credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentialsPlayServicesAuth" }
+googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleid" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 
 # Audio Processing - Native Android implementation (no external dependency)
 # Pitch detection is implemented natively using Android AudioRecord

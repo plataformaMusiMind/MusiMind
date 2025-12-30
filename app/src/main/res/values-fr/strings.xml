@@ -115,7 +115,7 @@
     <string name="join_room">Rejoindre une Salle</string>
     <string name="room_code">Code de Salle</string>
     <string name="waiting_for_players">En attente de joueurs...</string>
-    <string name="players_ready">%d/%d joueurs prêts</string>
+    <string name="players_ready">%1$d/%2$d joueurs prêts</string>
     <string name="start_game">Démarrer</string>
     <string name="round">Manche %d</string>
     <string name="winner">Gagnant !</string>

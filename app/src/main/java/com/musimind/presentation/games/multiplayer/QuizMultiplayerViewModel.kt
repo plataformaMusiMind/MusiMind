@@ -9,9 +9,9 @@ import com.musimind.presentation.games.qr.QRCodeGenerator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
-import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.PostgresAction
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
@@ -118,7 +118,8 @@ class QuizMultiplayerViewModel @Inject constructor(
     }
     
     /**
-     * Subscribe to real-time updates for a room
+     * Subscribe to real-time updates for a room using Supabase Realtime
+     * Falls back to polling if Realtime fails
      */
     private fun subscribeToRoom(roomCode: String) {
         realtimeJob?.cancel()
@@ -126,18 +127,17 @@ class QuizMultiplayerViewModel @Inject constructor(
             try {
                 val channel = realtime.channel("quiz_room_$roomCode")
                 
+                // Listen for player changes
                 val playerChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
                     table = "quiz_players"
-                    filter = "room_code=eq.$roomCode"
                 }
                 
+                // Listen for room changes
                 val roomChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
                     table = "quiz_rooms"
-                    filter = "code=eq.$roomCode"
                 }
                 
-                channel.subscribe()
-                
+                // Handle player changes
                 launch {
                     playerChanges.collect { action ->
                         when (action) {
@@ -149,6 +149,7 @@ class QuizMultiplayerViewModel @Inject constructor(
                     }
                 }
                 
+                // Handle room changes
                 launch {
                     roomChanges.collect { action ->
                         when (action) {
@@ -158,10 +159,16 @@ class QuizMultiplayerViewModel @Inject constructor(
                     }
                 }
                 
+                // Subscribe to channel
+                channel.subscribe()
+                
+                // Initial load
                 refreshPlayers(roomCode)
                 
+                android.util.Log.d("QuizMultiplayer", "Realtime connected for room: $roomCode")
+                
             } catch (e: Exception) {
-                android.util.Log.e("QuizMultiplayer", "Realtime error: ${e.message}")
+                android.util.Log.e("QuizMultiplayer", "Realtime error, falling back to polling: ${e.message}")
                 startPolling(roomCode)
             }
         }
@@ -352,26 +359,26 @@ class QuizMultiplayerViewModel @Inject constructor(
                 when (audioData.type) {
                     AudioType.SINGLE_NOTE -> {
                         audioData.notes.firstOrNull()?.let { note ->
-                            audioManager.playNote(note, audioData.duration, 0.85f)
+                            audioManager.playNote(note, audioData.duration.toLong(), 0.85f)
                         }
                     }
                     AudioType.INTERVAL -> {
                         audioData.notes.forEach { note ->
-                            audioManager.playNote(note, audioData.duration, 0.85f)
+                            audioManager.playNote(note, audioData.duration.toLong(), 0.85f)
                             delay(audioData.duration.toLong() + 200)
                         }
                     }
                     AudioType.CHORD -> {
                         // Play all notes simultaneously
                         audioData.notes.forEach { note ->
-                            audioManager.playNote(note, audioData.duration, 0.7f)
+                            audioManager.playNote(note, audioData.duration.toLong(), 0.7f)
                         }
                     }
                     AudioType.MELODY -> {
                         audioData.melody.forEach { melodyNote ->
-                            val durationMs = (melodyNote.duration * 60000 / audioData.tempo).toInt()
+                            val durationMs = (melodyNote.duration * 60000 / audioData.tempo).toLong()
                             audioManager.playNote(melodyNote.note, durationMs, 0.85f)
-                            delay(durationMs.toLong())
+                            delay(durationMs)
                         }
                     }
                     AudioType.RHYTHM -> {

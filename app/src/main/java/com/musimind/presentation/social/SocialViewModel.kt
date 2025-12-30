@@ -6,9 +6,9 @@ import com.musimind.domain.auth.AuthManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
-import io.github.jan.supabase.realtime.PostgresAction
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.PostgresAction
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -224,12 +224,13 @@ class SocialViewModel @Inject constructor(
                 .decodeList<UserEntity>()
                 .filter { it.authId !in existingFriendIds }
                 .map { user ->
+                    val userLevel = user.level ?: 1
                     FriendSuggestion(
                         id = user.authId ?: "",
                         name = user.fullName ?: "Usuário",
                         reason = when {
-                            user.level == level -> "Mesmo nível"
-                            user.level > level -> "Nível ${user.level}"
+                            userLevel == level -> "Mesmo nível"
+                            userLevel > level -> "Nível $userLevel"
                             else -> "Iniciante"
                         },
                         streak = user.streak ?: 0,
@@ -252,7 +253,8 @@ class SocialViewModel @Inject constructor(
     }
     
     /**
-     * Subscribe to real-time updates
+     * Subscribe to real-time updates using Supabase Realtime
+     * Falls back to polling if Realtime fails
      */
     private fun subscribeToUpdates() {
         realtimeJob?.cancel()
@@ -263,7 +265,6 @@ class SocialViewModel @Inject constructor(
                 // Listen for new friend requests
                 val connectionChanges = channel.postgresChangeFlow<PostgresAction>(schema = "public") {
                     table = "user_connections"
-                    filter = "to_user_id=eq.$currentUserId"
                 }
                 
                 // Listen for new activities from friends
@@ -271,8 +272,7 @@ class SocialViewModel @Inject constructor(
                     table = "activity_feed"
                 }
                 
-                channel.subscribe()
-                
+                // Handle connection changes
                 launch {
                     connectionChanges.collect { action ->
                         when (action) {
@@ -289,6 +289,7 @@ class SocialViewModel @Inject constructor(
                     }
                 }
                 
+                // Handle activity changes
                 launch {
                     activityChanges.collect { action ->
                         if (action is PostgresAction.Insert) {
@@ -297,9 +298,13 @@ class SocialViewModel @Inject constructor(
                     }
                 }
                 
+                // Subscribe to channel
+                channel.subscribe()
+                
+                android.util.Log.d("SocialViewModel", "Realtime connected for user: $currentUserId")
+                
             } catch (e: Exception) {
-                android.util.Log.e("SocialViewModel", "Realtime subscription failed: ${e.message}")
-                // Fallback to polling
+                android.util.Log.e("SocialViewModel", "Realtime subscription failed, falling back to polling: ${e.message}")
                 startPolling()
             }
         }
@@ -511,6 +516,13 @@ data class FriendSuggestion(
     val reason: String,
     val streak: Int,
     val avatarUrl: String? = null
+)
+
+data class ActivityItem(
+    val userName: String,
+    val action: String,
+    val time: String,
+    val xpEarned: Int = 0
 )
 
 // Entities for Supabase

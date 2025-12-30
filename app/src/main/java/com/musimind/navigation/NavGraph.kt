@@ -370,6 +370,56 @@ fun MusiMindNavGraph(
             )
         }
         
+        // Harmony Exercise (Harmonic Progressions)
+        composable(
+            route = Screen.HarmonyExercise.route,
+            arguments = listOf(
+                androidx.navigation.navArgument("exerciseId") {
+                    type = androidx.navigation.NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val exerciseId = backStackEntry.arguments?.getString("exerciseId") ?: ""
+            // Use interval exercise as placeholder for harmony
+            com.musimind.presentation.exercise.IntervalExerciseScreen(
+                exerciseId = exerciseId,
+                onBack = { navController.popBackStack() },
+                onComplete = { score, total ->
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        // Settings Screen
+        composable(Screen.Settings.route) {
+            com.musimind.presentation.settings.SettingsScreen(
+                onBack = { navController.popBackStack() },
+                onNavigateToTheme = { },
+                onNavigateToNotifications = { navController.navigate(Screen.Notifications.route) },
+                onNavigateToLanguage = { navController.navigate(Screen.LanguageSelection.route) },
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(Screen.Home.route) { inclusive = true }
+                    }
+                }
+            )
+        }
+        
+        // Edit Profile Screen
+        composable(Screen.EditProfile.route) {
+            com.musimind.presentation.profile.EditProfileScreen(
+                onBack = { navController.popBackStack() },
+                onSave = { navController.popBackStack() }
+            )
+        }
+        
+        // Notification Settings Screen
+        composable(Screen.Notifications.route) {
+            com.musimind.presentation.settings.NotificationSettingsScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+        
         // =====================================================
         // MINI-GAMES
         // =====================================================

@@ -44,7 +44,9 @@ class ImageUploadRepository @Inject constructor(
             
             // Upload to Supabase Storage
             val bucket = storage.from(AVATARS_BUCKET)
-            bucket.upload(path, compressedBytes, upsert = true)
+            bucket.upload(path, compressedBytes) {
+                upsert = true
+            }
             
             // Get public URL
             val publicUrl = bucket.publicUrl(path)
@@ -70,7 +72,9 @@ class ImageUploadRepository @Inject constructor(
             val path = "$folder/$fileName"
             
             val bucket = storage.from(IMAGES_BUCKET)
-            bucket.upload(path, compressedBytes, upsert = true)
+            bucket.upload(path, compressedBytes) {
+                upsert = true
+            }
             
             val publicUrl = bucket.publicUrl(path)
             

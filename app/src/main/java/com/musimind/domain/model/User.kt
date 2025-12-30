@@ -7,10 +7,10 @@ import kotlinx.serialization.Serializable
  * Represents the different types of users in MusiMind
  */
 @Serializable
-enum class UserType {
-    STUDENT,    // Aluno - learns music theory
-    TEACHER,    // Professor - monitors student progress
-    SCHOOL      // Escola de Música - manages teachers and students
+enum class UserType(val displayName: String) {
+    STUDENT("Estudante"),    // Aluno - learns music theory
+    TEACHER("Professor"),    // Professor - monitors student progress
+    SCHOOL("Escola")         // Escola de Música - manages teachers and students
 }
 
 /**

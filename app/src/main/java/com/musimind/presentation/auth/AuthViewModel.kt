@@ -3,6 +3,8 @@ package com.musimind.presentation.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.musimind.data.repository.UserRepository
+import com.musimind.domain.auth.GoogleSignInHelper
+import com.musimind.domain.auth.GoogleSignInResult
 import com.musimind.domain.model.AuthProvider
 import com.musimind.domain.model.Plan
 import com.musimind.domain.model.User
@@ -36,7 +38,8 @@ data class AuthUiState(
 @HiltViewModel
 class AuthViewModel @Inject constructor(
     private val auth: Auth,
-    private val userRepository: UserRepository
+    private val userRepository: UserRepository,
+    private val googleSignInHelper: GoogleSignInHelper
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -193,63 +196,79 @@ class AuthViewModel @Inject constructor(
     }
 
     /**
-     * Sign in with Google using Supabase OAuth
-     * Note: Requires Google provider to be configured in Supabase Dashboard
-     * Go to: https://supabase.com/dashboard/project/qspzqkyiemjtrlupfzuq/auth/providers
+     * Sign in with Google using native Credential Manager
+     * This provides a beautiful native UI without opening a browser
      */
     fun signInWithGoogle(activityContext: android.content.Context) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             
             try {
-                // Use Supabase OAuth flow for Google
-                // This will open a browser for Google authentication
-                auth.signInWith(io.github.jan.supabase.auth.providers.Google) {
-                    // OAuth configuration
-                    // The redirect URL should be configured in Supabase dashboard
-                }
-                
-                val session = auth.currentSessionOrNull()
-                val userId = session?.user?.id
-                
-                if (userId != null) {
-                    val userExists = userRepository.userExists(userId)
-                    
-                    if (!userExists) {
-                        // Create new user profile for Google sign-in
-                        val googleUser = User(
-                            authId = userId,
-                            email = session.user?.email ?: "",
-                            fullName = session.user?.userMetadata?.get("full_name")?.toString() 
-                                ?: session.user?.email?.substringBefore('@') ?: "Usuário",
-                            avatarUrl = session.user?.userMetadata?.get("avatar_url")?.toString(),
-                            authProvider = AuthProvider.GOOGLE
-                        )
-                        userRepository.createOrUpdateUser(googleUser)
+                when (val result = googleSignInHelper.signIn(activityContext)) {
+                    is GoogleSignInResult.Success -> {
+                        // Use the ID token to sign in with Supabase
+                        auth.signInWith(io.github.jan.supabase.auth.providers.Google) {
+                            idToken = result.idToken
+                        }
+                        
+                        val session = auth.currentSessionOrNull()
+                        val userId = session?.user?.id
+                        
+                        if (userId != null) {
+                            val userExists = userRepository.userExists(userId)
+                            
+                            if (!userExists) {
+                                // Create new user profile for Google sign-in
+                                val googleUser = User(
+                                    authId = userId,
+                                    email = result.email,
+                                    fullName = result.displayName ?: result.email.substringBefore('@'),
+                                    avatarUrl = result.photoUrl,
+                                    authProvider = AuthProvider.GOOGLE
+                                )
+                                userRepository.createOrUpdateUser(googleUser)
+                            }
+                            
+                            _uiState.update { 
+                                it.copy(
+                                    isLoading = false, 
+                                    isLoginSuccess = true,
+                                    isNewUser = !userExists
+                                )
+                            }
+                        } else {
+                            _uiState.update { 
+                                it.copy(
+                                    isLoading = false, 
+                                    errorMessage = "Erro ao criar sessão no servidor"
+                                ) 
+                            }
+                        }
                     }
                     
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false, 
-                            isLoginSuccess = true,
-                            isNewUser = !userExists
-                        )
+                    is GoogleSignInResult.Cancelled -> {
+                        _uiState.update { 
+                            it.copy(
+                                isLoading = false, 
+                                errorMessage = null // Não mostra erro quando usuário cancela
+                            ) 
+                        }
                     }
-                } else {
-                    _uiState.update { 
-                        it.copy(
-                            isLoading = false, 
-                            errorMessage = "Login com Google cancelado"
-                        ) 
+                    
+                    is GoogleSignInResult.Error -> {
+                        _uiState.update { 
+                            it.copy(
+                                isLoading = false, 
+                                errorMessage = result.message
+                            ) 
+                        }
                     }
                 }
             } catch (e: Exception) {
                 val errorMessage = when {
-                    e.message?.contains("OAuth") == true -> 
-                        "Erro de configuração OAuth. Verifique o Supabase Dashboard."
-                    e.message?.contains("cancelled") == true -> 
-                        "Login cancelado pelo usuário"
-                    e.message?.contains("network") == true -> 
+                    e.message?.contains("configuration", ignoreCase = true) == true -> 
+                        "Erro de configuração. Verifique o Google Cloud Console."
+                    e.message?.contains("network", ignoreCase = true) == true -> 
                         "Erro de conexão. Verifique sua internet."
                     else -> "Erro ao fazer login com Google: ${e.message}"
                 }
@@ -257,6 +276,7 @@ class AuthViewModel @Inject constructor(
             }
         }
     }
+
 
     /**
      * Send password reset email

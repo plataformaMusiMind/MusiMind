@@ -3,7 +3,7 @@ package com.musimind
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -28,7 +29,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
     
     @Inject
     lateinit var authManager: AuthManager
@@ -70,6 +71,11 @@ class MainActivity : ComponentActivity() {
         
         if (scheme == "musimind") {
             when (host) {
+                "auth" -> {
+                    // OAuth callback - Supabase Auth handles this automatically
+                    // The session will be refreshed and user will be redirected
+                    android.util.Log.d("MainActivity", "OAuth callback received: $data")
+                }
                 "subscription" -> {
                     when (path) {
                         "/success" -> {
@@ -156,11 +162,11 @@ fun MainApp(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            if (showBottomBar) {
+                if (showBottomBar) {
                 NavigationBar {
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
-                        label = { Text("Home") },
+                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                        label = { Text(stringResource(R.string.nav_home)) },
                         selected = currentRoute == Screen.Home.route,
                         onClick = {
                             navController.navigate(Screen.Home.route) {
@@ -169,8 +175,8 @@ fun MainApp(
                         }
                     )
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.MusicNote, contentDescription = "Praticar") },
-                        label = { Text("Praticar") },
+                        icon = { Icon(Icons.Default.MusicNote, contentDescription = null) },
+                        label = { Text(stringResource(R.string.nav_practice)) },
                         selected = currentRoute == Screen.Practice.route,
                         onClick = {
                             navController.navigate(Screen.Practice.route) {
@@ -179,8 +185,8 @@ fun MainApp(
                         }
                     )
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.EmojiEvents, contentDescription = "Desafios") },
-                        label = { Text("Desafios") },
+                        icon = { Icon(Icons.Default.EmojiEvents, contentDescription = null) },
+                        label = { Text(stringResource(R.string.nav_challenges)) },
                         selected = currentRoute == Screen.Challenges.route,
                         onClick = {
                             navController.navigate(Screen.Challenges.route) {
@@ -189,8 +195,8 @@ fun MainApp(
                         }
                     )
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Group, contentDescription = "Social") },
-                        label = { Text("Social") },
+                        icon = { Icon(Icons.Default.Group, contentDescription = null) },
+                        label = { Text(stringResource(R.string.nav_social)) },
                         selected = currentRoute == Screen.Social.route,
                         onClick = {
                             navController.navigate(Screen.Social.route) {
@@ -199,8 +205,8 @@ fun MainApp(
                         }
                     )
                     NavigationBarItem(
-                        icon = { Icon(Icons.Default.Person, contentDescription = "Perfil") },
-                        label = { Text("Perfil") },
+                        icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                        label = { Text(stringResource(R.string.nav_profile)) },
                         selected = currentRoute == Screen.Profile.route,
                         onClick = {
                             navController.navigate(Screen.Profile.route) {

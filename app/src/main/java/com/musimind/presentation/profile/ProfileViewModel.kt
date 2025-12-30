@@ -54,7 +54,7 @@ class ProfileViewModel @Inject constructor(
                             userEmail = user.email,
                             avatarUrl = user.avatarUrl,
                             userType = user.userType.displayName,
-                            planType = user.planType.displayName,
+                            planType = user.plan.displayName,
                             level = level,
                             totalXp = user.xp,
                             currentXpInLevel = user.xp - currentLevelXp,

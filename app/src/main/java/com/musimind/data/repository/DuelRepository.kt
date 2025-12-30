@@ -4,8 +4,17 @@ import com.musimind.domain.model.*
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
+import io.github.jan.supabase.realtime.PostgresAction
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -150,34 +159,30 @@ class DuelRepository @Inject constructor(
     
     /**
      * Observe a duel in real-time using Supabase Realtime
-     * Falls back to polling if Realtime fails
+     * Falls back to polling if Realtime connection fails
      */
-    fun observeDuel(duelId: String): Flow<Duel?> = kotlinx.coroutines.flow.channelFlow {
+    fun observeDuel(duelId: String): Flow<Duel?> = channelFlow {
         // Initial fetch
         var currentDuel = fetchDuel(duelId)
         send(currentDuel)
         
         try {
             // Create realtime channel
-            val channel = realtime.channel("duel_$duelId")
+            val realtimeChannel = realtime.channel("duel_$duelId")
             
-            // Subscribe to duel updates
-            val duelChanges = channel.postgresChangeFlow<io.github.jan.supabase.realtime.PostgresAction>(
-                schema = "public"
-            ) {
+            // Subscribe to duel updates using correct v3.0 syntax
+            val duelChanges = realtimeChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
                 table = "duels"
-                filter = "id=eq.$duelId"
+                // Note: filter syntax for row-level is: filter("column", FilterOperator.EQ, value)
+                // For now, we filter client-side since we're watching all changes to the duels table
             }
             
-            // Subscribe to the channel
-            channel.subscribe()
-            
-            // Listen for changes
-            kotlinx.coroutines.launch {
-                duelChanges.collect { action ->
+            // Start listening for changes
+            launch {
+                duelChanges.onEach { action ->
                     when (action) {
-                        is io.github.jan.supabase.realtime.PostgresAction.Update,
-                        is io.github.jan.supabase.realtime.PostgresAction.Insert -> {
+                        is PostgresAction.Update, is PostgresAction.Insert -> {
+                            // Fetch updated duel and check if it's the one we're watching
                             val updatedDuel = fetchDuel(duelId)
                             if (updatedDuel != currentDuel) {
                                 currentDuel = updatedDuel
@@ -186,16 +191,19 @@ class DuelRepository @Inject constructor(
                             
                             // Stop if duel is complete
                             if (currentDuel?.status == DuelStatus.COMPLETED) {
-                                channel.unsubscribe()
+                                realtimeChannel.unsubscribe()
                             }
                         }
                         else -> { }
                     }
-                }
+                }.launchIn(this)
             }
             
-            // Keep the flow alive until cancelled
-            kotlinx.coroutines.awaitCancellation()
+            // Subscribe to channel
+            realtimeChannel.subscribe()
+            
+            // Keep flow alive
+            awaitCancellation()
             
         } catch (e: Exception) {
             android.util.Log.w("DuelRepository", "Realtime failed, falling back to polling: ${e.message}")
@@ -210,12 +218,13 @@ class DuelRepository @Inject constructor(
                     send(updatedDuel)
                 }
                 
-                // Stop observing if duel is complete
                 if (currentDuel?.status == DuelStatus.COMPLETED) {
                     break
                 }
             }
         }
+    }.catch { e ->
+        android.util.Log.e("DuelRepository", "Error observing duel: ${e.message}")
     }
     
     /**
